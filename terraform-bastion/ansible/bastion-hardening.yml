@@ -1,0 +1,51 @@
+---
+- name: Durcir le Bastion OpenStack
+  hosts: bastion
+  become: true
+
+  tasks:
+    - name: Installer les outils de sécurité
+      ansible.builtin.apt:
+        name:
+          - fail2ban
+          - auditd
+          - unattended-upgrades
+        state: present
+        update_cache: true
+
+    - name: Déployer la configuration SSH du Bastion
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/99-bastion.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PermitRootLogin no
+          PubkeyAuthentication yes
+          AllowAgentForwarding no
+          X11Forwarding no
+          PermitTunnel no
+          MaxAuthTries 3
+          ClientAliveInterval 300
+          ClientAliveCountMax 2
+      notify: Restart SSH
+
+    - name: Activer Fail2ban
+      ansible.builtin.service:
+        name: fail2ban
+        enabled: true
+        state: started
+
+    - name: Activer auditd
+      ansible.builtin.service:
+        name: auditd
+        enabled: true
+        state: started
+
+  handlers:
+    - name: Restart SSH
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
