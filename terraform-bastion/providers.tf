@@ -18,18 +18,32 @@ terraform {
 }
 
 provider "openstack" {
-  user_name   = var.os_username
-  password    = var.os_password
-  tenant_name = var.os_project_name
-  auth_url    = "http://localhost:5000/v3"
-  region      = "RegionOne"
+  user_name           = var.os_username
+  password            = var.os_password
+  tenant_name         = var.os_project_name
+  user_domain_name    = var.os_user_domain_name
+  project_domain_name = var.os_project_domain_name
 
+  auth_url = "http://localhost:5000/v3"
+  region   = "RegionOne"
 
   endpoint_overrides = {
     identity = "http://localhost:5000/v3/"
     compute  = "http://localhost:8774/v2.1/"
     network  = "http://localhost:9696/v2.0/"
-    image    = "http://localhost:9292/v2/"
+    image    = "http://localhost:19292/v2/"
     volumev3 = "http://localhost:8776/v3/"
   }
+}
+
+variable "os_user_domain_name" {
+  description = "Domaine OpenStack de l'utilisateur"
+  type        = string
+  default     = "Default"
+}
+
+variable "os_project_domain_name" {
+  description = "Domaine OpenStack du projet"
+  type        = string
+  default     = "Default"
 }

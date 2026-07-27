@@ -66,17 +66,19 @@ resource "openstack_compute_instance_v2" "bastion" {
   }
 }
 
-resource "openstack_networking_floatingip_v2" "bastion" {
-  pool        = var.external_network_name
-  subnet_id   = var.floating_ip_subnet_id
-  description = "Floating IP du Bastion Nawel"
+# resource "openstack_networking_floatingip_v2" "bastion" {
+#   pool        = var.external_network_name
+#   subnet_id   = var.floating_ip_subnet_id
+#   description = "Floating IP du Bastion Nawel"
+#
+#   lifecycle {
+#     prevent_destroy = true
+#   }
+# }
 
-  lifecycle {
-    prevent_destroy = true
-  }
-}
+
 
 resource "openstack_networking_floatingip_associate_v2" "bastion" {
-  floating_ip = openstack_networking_floatingip_v2.bastion.address
+  floating_ip = var.bastion_floating_ip
   port_id     = openstack_networking_port_v2.bastion.id
 }

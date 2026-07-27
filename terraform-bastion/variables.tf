@@ -1,16 +1,17 @@
 variable "os_username" {
-  type    = string
-  default = "nawel"
+  description = "Nom d'utilisateur OpenStack"
+  type        = string
 }
 
 variable "os_password" {
-  type      = string
-  sensitive = true
+  description = "Mot de passe OpenStack"
+  type        = string
+  sensitive   = true
 }
 
 variable "os_project_name" {
-  type    = string
-  default = "stagiaires-ete-2026"
+  description = "Nom du projet OpenStack"
+  type        = string
 }
 
 variable "private_network_name" {
@@ -54,16 +55,20 @@ variable "existing_keypair_name" {
 }
 
 variable "admin_ssh_keys" {
-  type      = list(string)
-  sensitive = true
+  description = "Clés SSH publiques autorisées sur le Bastion"
+  type        = list(string)
 }
 
 variable "allowed_admin_cidrs" {
-  description = "CIDR autorisés à joindre le Bastion"
+  description = "CIDR autorisés à joindre le Bastion en SSH"
   type        = list(string)
 }
 
 variable "existing_vm_ports" {
-  description = "Ports Neutron des VMs du test"
+  description = "Ports Neutron des VMs utilisées pour le test Bastion"
   type        = map(string)
+}
+variable "bastion_floating_ip" {
+  description = "Floating IP existante à associer au Bastion"
+  type        = string
 }

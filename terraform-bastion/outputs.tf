@@ -1,22 +1,19 @@
 output "bastion_private_ip" {
+  description = "Adresse IP privée du Bastion"
   value       = openstack_networking_port_v2.bastion.all_fixed_ips[0]
-  description = "IP privée du Bastion"
 }
 
 output "bastion_floating_ip" {
-  value       = openstack_networking_floatingip_v2.bastion.address
-  description = "Floating IP du Bastion"
+  description = "Floating IP associée au Bastion"
+  value       = var.bastion_floating_ip
 }
 
 output "ssh_bastion" {
-  value = "ssh ubuntu@${openstack_networking_floatingip_v2.bastion.address}"
+  description = "Commande SSH pour accéder au Bastion"
+  value       = "ssh ubuntu@${var.bastion_floating_ip}"
 }
 
 output "ssh_full_stack_js" {
-  value = "ssh -J ubuntu@${openstack_networking_floatingip_v2.bastion.address} ubuntu@192.168.100.87"
+  description = "Commande SSH vers Full-Stack-JS via le Bastion"
+  value       = "ssh -J ubuntu@${var.bastion_floating_ip} ubuntu@192.168.100.87"
 }
-
-output "ssh_lms_openedx" {
-  value = "ssh -J ubuntu@${openstack_networking_floatingip_v2.bastion.address} ubuntu@192.168.100.55"
-}
-
