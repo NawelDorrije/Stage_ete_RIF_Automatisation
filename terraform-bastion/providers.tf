@@ -24,15 +24,15 @@ provider "openstack" {
   user_domain_name    = var.os_user_domain_name
   project_domain_name = var.os_project_domain_name
 
-  auth_url = "http://localhost:5000/v3"
+  auth_url = "http://127.0.0.1:5000/v3"
   region   = "RegionOne"
 
   endpoint_overrides = {
-    identity = "http://localhost:5000/v3/"
-    compute  = "http://localhost:8774/v2.1/"
-    network  = "http://localhost:9696/v2.0/"
-    image    = "http://localhost:19292/v2/"
-    volumev3 = "http://localhost:8776/v3/"
+    identity = "http://127.0.0.1:5000/v3/"
+    compute  = "http://127.0.0.1:8774/v2.1/"
+    network  = "http://127.0.0.1:9696/v2.0/"
+    image    = "http://127.0.0.1:19292/v2/"
+    volumev3 = "http://127.0.0.1:8776/v3/"
   }
 }
 

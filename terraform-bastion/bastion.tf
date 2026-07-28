@@ -35,6 +35,7 @@ resource "openstack_compute_instance_v2" "bastion" {
       - ${join("\n      - ", var.admin_ssh_keys)}
 
     package_update: true
+
     packages:
       - fail2ban
       - auditd
@@ -63,9 +64,15 @@ resource "openstack_compute_instance_v2" "bastion" {
 
   lifecycle {
     prevent_destroy = true
+
+    ignore_changes = [
+      user_data
+    ]
   }
 }
 
+# La Floating IP existe déjà : Terraform ne doit pas en créer une nouvelle.
+#
 # resource "openstack_networking_floatingip_v2" "bastion" {
 #   pool        = var.external_network_name
 #   subnet_id   = var.floating_ip_subnet_id
@@ -75,8 +82,6 @@ resource "openstack_compute_instance_v2" "bastion" {
 #     prevent_destroy = true
 #   }
 # }
-
-
 
 resource "openstack_networking_floatingip_associate_v2" "bastion" {
   floating_ip = var.bastion_floating_ip

@@ -18,7 +18,7 @@ terraform.tfvars
 
 # Fichier de verrouillage (à conserver si projet partagé)
 # Décommente la ligne suivante si tu ne souhaites pas le versionner
-# .terraform.lock.hcl
+ .terraform.lock.hcl
 
 ###############################################################################
 # Variables d'environnement

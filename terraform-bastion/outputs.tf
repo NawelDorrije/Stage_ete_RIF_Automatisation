@@ -13,7 +13,7 @@ output "ssh_bastion" {
   value       = "ssh ubuntu@${var.bastion_floating_ip}"
 }
 
-output "ssh_full_stack_js" {
-  description = "Commande SSH vers Full-Stack-JS via le Bastion"
-  value       = "ssh -J ubuntu@${var.bastion_floating_ip} ubuntu@192.168.100.87"
+output "ssh_lms_openedx" {
+  description = "Commande SSH vers LMS-OpenedX via le Bastion"
+  value       = "ssh -J ubuntu@${var.bastion_floating_ip} ubuntu@192.168.100.55"
 }

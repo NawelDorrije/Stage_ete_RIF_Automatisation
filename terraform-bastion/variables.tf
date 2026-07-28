@@ -57,6 +57,8 @@ variable "existing_keypair_name" {
 variable "admin_ssh_keys" {
   description = "Clés SSH publiques autorisées sur le Bastion"
   type        = list(string)
+  default     = []
+  sensitive   = true
 }
 
 variable "allowed_admin_cidrs" {
@@ -68,6 +70,7 @@ variable "existing_vm_ports" {
   description = "Ports Neutron des VMs utilisées pour le test Bastion"
   type        = map(string)
 }
+
 variable "bastion_floating_ip" {
   description = "Floating IP existante à associer au Bastion"
   type        = string
