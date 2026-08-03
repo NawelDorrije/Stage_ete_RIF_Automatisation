@@ -4,10 +4,11 @@
   become: true
 
   tasks:
-    - name: Supprimer le lien du site actif
+    - name: Supprimer les liens des sites actifs
       ansible.builtin.file:
-        path: "/etc/nginx/sites-enabled/{{ reverse_proxy_site_name | default('rif-javajs') }}"
+        path: "/etc/nginx/sites-enabled/{{ item.name }}"
         state: absent
+      loop: "{{ reverse_proxy_sites }}"
       notify:
         - Tester la syntaxe Nginx
         - Recharger Nginx

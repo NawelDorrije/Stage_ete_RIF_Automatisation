@@ -26,24 +26,32 @@
     - Tester la syntaxe Nginx
     - Recharger Nginx
 
-- name: Déployer le VirtualHost Reverse Proxy
+- name: Déployer les VirtualHost Reverse Proxy
   ansible.builtin.template:
     src: reverse-proxy.conf.j2
-    dest: "/etc/nginx/sites-available/{{ reverse_proxy_site_name }}"
+    dest: "/etc/nginx/sites-available/{{ item.name }}"
     owner: root
     group: root
     mode: '0644'
+  loop: "{{ reverse_proxy_sites }}"
   become: true
+  vars:
+    reverse_proxy_site_name: "{{ item.name }}"
+    reverse_proxy_domain: "{{ item.domain }}"
+    reverse_proxy_upstream_host: "{{ item.upstream_host }}"
+    reverse_proxy_upstream_port: "{{ item.upstream_port }}"
+    reverse_proxy_tls_enabled: "{{ reverse_proxy_enable_https | bool and (reverse_proxy_site_tls[item.domain] | default(false)) }}"
   notify:
     - Tester la syntaxe Nginx
     - Recharger Nginx
 
-- name: Activer le VirtualHost
+- name: Activer les VirtualHost
   ansible.builtin.file:
-    src: "/etc/nginx/sites-available/{{ reverse_proxy_site_name }}"
-    dest: "/etc/nginx/sites-enabled/{{ reverse_proxy_site_name }}"
+    src: "/etc/nginx/sites-available/{{ item.name }}"
+    dest: "/etc/nginx/sites-enabled/{{ item.name }}"
     state: link
     force: true
+  loop: "{{ reverse_proxy_sites }}"
   become: true
   notify:
     - Tester la syntaxe Nginx
@@ -54,6 +62,48 @@
     path: /etc/nginx/sites-enabled/default
     state: absent
   become: true
+  notify:
+    - Tester la syntaxe Nginx
+    - Recharger Nginx
+
+- name: Lister les VirtualHost Nginx activés
+  ansible.builtin.find:
+    paths: /etc/nginx/sites-enabled
+  register: nginx_enabled_sites
+  become: true
+  changed_when: false
+  when: reverse_proxy_cleanup_stale_sites | default(true) | bool
+
+- name: Supprimer les anciens VirtualHost (domaines renommés)
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  become: true
+  loop: "{{ nginx_enabled_sites.files | default([]) }}"
+  when:
+    - reverse_proxy_cleanup_stale_sites | default(true) | bool
+    - item.path | basename not in (reverse_proxy_sites | map(attribute='name') | list + ['default'])
+  notify:
+    - Tester la syntaxe Nginx
+    - Recharger Nginx
+
+- name: Lister les VirtualHost Nginx disponibles
+  ansible.builtin.find:
+    paths: /etc/nginx/sites-available
+  register: nginx_available_sites
+  become: true
+  changed_when: false
+  when: reverse_proxy_cleanup_stale_sites | default(true) | bool
+
+- name: Supprimer les fichiers des anciens VirtualHost (sites-available)
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  become: true
+  loop: "{{ nginx_available_sites.files | default([]) }}"
+  when:
+    - reverse_proxy_cleanup_stale_sites | default(true) | bool
+    - item.path | basename not in (reverse_proxy_sites | map(attribute='name') | list + ['default'])
   notify:
     - Tester la syntaxe Nginx
     - Recharger Nginx

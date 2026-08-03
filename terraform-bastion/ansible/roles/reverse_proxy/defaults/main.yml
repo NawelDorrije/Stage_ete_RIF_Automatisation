@@ -1,24 +1,36 @@
 ---
-reverse_proxy_domain: rif-javajs.duckdns.org
-reverse_proxy_upstream_host: 192.168.100.149
+# Multi-vhost : liste des sites à exposer. Chaque entrée :
+#   { name: <nom_vhost>, domain: <domaine_public>, upstream_host: <IP>, upstream_port: <port> }
+# Vide = rétrocompatibilité : le rôle construit un site unique depuis les
+# scalaires reverse_proxy_domain / reverse_proxy_upstream_host / _port.
+reverse_proxy_sites: []
+reverse_proxy_domain: rif-fullstack.duckdns.org
+reverse_proxy_upstream_host: 192.168.100.87
 reverse_proxy_upstream_port: 80
-reverse_proxy_site_name: rif-javajs
+reverse_proxy_site_name: rif-fullstack
 reverse_proxy_client_max_body_size: 20m
 reverse_proxy_read_timeout: 300
 reverse_proxy_connect_timeout: 30
 reverse_proxy_send_timeout: 300
+# Cache-Control des assets hachés (SPA : nom de fichier immutable) et du HTML.
+reverse_proxy_asset_cache_control: "public, max-age=31536000, immutable"
+reverse_proxy_html_cache_control: "no-cache, must-revalidate"
 reverse_proxy_manage_ufw: true
 reverse_proxy_ssh_port: 22
 reverse_proxy_admin_cidrs:
   - 0.0.0.0/0
 reverse_proxy_manage_duckdns: false
-duckdns_subdomain: rif-javajs
+duckdns_subdomain: rif-fullstack
 duckdns_token: ""
 # IP publique du bastion. Vide = auto-détection (IP source vue par DuckDNS) ;
 # renseignez-la explicitement si l'egress du bastion ≠ son IP publique entrante
 # (ex. Floating IP en DNAT-only).
 duckdns_ip: ""
 duckdns_update_interval_minutes: 5
+# Noms d'anciennes tâches cron DuckDNS à supprimer (renommages successifs).
+reverse_proxy_cleanup_cron_names:
+  - "Mise à jour DuckDNS rif-javajs"
+  - "Mise à jour DuckDNS rif-fullstack"
 reverse_proxy_enable_https: false
 # Calculé par le rôle (true seulement si HTTPS activé ET certificat présent).
 # Le template n'inclut le serveur 443 que lorsque ce flag est true.
@@ -28,3 +40,7 @@ certbot_redirect_http_to_https: true
 reverse_proxy_validate_upstream: true
 reverse_proxy_validate_public_http: true
 reverse_proxy_validate_public_https: true
+# Nettoyage des artefacts d'un précédent déploiement (renommage de domaine) :
+# VirtualHost Nginx obsolètes et certificats Let's Encrypt orphelins.
+reverse_proxy_cleanup_stale_sites: true
+reverse_proxy_cleanup_stale_certs: true

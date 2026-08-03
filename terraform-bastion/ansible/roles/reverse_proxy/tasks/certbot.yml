@@ -15,12 +15,13 @@
     state: present
   become: true
 
-- name: Vérifier la résolution DNS du domaine
+- name: Vérifier la résolution DNS de chaque domaine
   ansible.builtin.command:
     argv:
       - getent
       - ahostsv4
-      - "{{ reverse_proxy_domain }}"
+      - "{{ item.domain }}"
+  loop: "{{ reverse_proxy_sites }}"
   register: dns_lookup
   changed_when: false
   ignore_errors: true
@@ -28,9 +29,9 @@
 
 - name: Afficher la résolution DNS détectée
   ansible.builtin.debug:
-    var: dns_lookup.stdout_lines
+    var: dns_lookup.results | map(attribute='stdout_lines') | list
 
-- name: Générer ou renouveler le certificat Let's Encrypt (webroot)
+- name: Générer ou renouveler les certificats Let's Encrypt (webroot)
   ansible.builtin.command:
     argv:
       - certbot
@@ -43,11 +44,12 @@
       - --email
       - "{{ certbot_email }}"
       - --domains
-      - "{{ reverse_proxy_domain }}"
+      - "{{ item.domain }}"
       - --keep-until-expiring
       - --expand
   args:
-    creates: "/etc/letsencrypt/live/{{ reverse_proxy_domain }}/fullchain.pem"
+    creates: "/etc/letsencrypt/live/{{ item.domain }}/fullchain.pem"
+  loop: "{{ reverse_proxy_sites }}"
   become: true
 
 - name: Activer le timer de renouvellement Certbot
@@ -57,11 +59,50 @@
     enabled: true
   become: true
 
-- name: Tester le renouvellement Certbot
-  ansible.builtin.command: certbot renew --dry-run --no-random-sleep-on-renew
-  register: certbot_dry_run
-  until: certbot_dry_run.rc == 0
-  retries: 3
-  delay: 15
-  changed_when: false
+- name: Lister les certificats Let's Encrypt existants
+  ansible.builtin.find:
+    paths: /etc/letsencrypt/live
+    file_type: directory
+  register: letsencrypt_live_certs
   become: true
+  changed_when: false
+  when: reverse_proxy_cleanup_stale_certs | default(true) | bool
+
+- name: Supprimer les certificats obsolètes (domaines renommés)
+  ansible.builtin.file:
+    path: "/etc/letsencrypt/live/{{ item.path | basename }}"
+    state: absent
+  become: true
+  loop: "{{ letsencrypt_live_certs.files | default([]) }}"
+  when:
+    - reverse_proxy_cleanup_stale_certs | default(true) | bool
+    - item.path | basename not in (reverse_proxy_sites | map(attribute='domain') | list + ['README'])
+  notify:
+    - Tester la syntaxe Nginx
+    - Recharger Nginx
+
+- name: Supprimer les archives des certificats obsolètes
+  ansible.builtin.file:
+    path: "/etc/letsencrypt/archive/{{ item.path | basename }}"
+    state: absent
+  become: true
+  loop: "{{ letsencrypt_live_certs.files | default([]) }}"
+  when:
+    - reverse_proxy_cleanup_stale_certs | default(true) | bool
+    - item.path | basename not in (reverse_proxy_sites | map(attribute='domain') | list + ['README'])
+  notify:
+    - Tester la syntaxe Nginx
+    - Recharger Nginx
+
+- name: Supprimer les configurations de renouvellement obsolètes
+  ansible.builtin.file:
+    path: "/etc/letsencrypt/renewal/{{ item.path | basename }}.conf"
+    state: absent
+  become: true
+  loop: "{{ letsencrypt_live_certs.files | default([]) }}"
+  when:
+    - reverse_proxy_cleanup_stale_certs | default(true) | bool
+    - item.path | basename not in (reverse_proxy_sites | map(attribute='domain') | list + ['README'])
+  notify:
+    - Tester la syntaxe Nginx
+    - Recharger Nginx

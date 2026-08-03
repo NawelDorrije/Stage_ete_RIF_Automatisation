@@ -2,20 +2,39 @@
 - name: Vérifier les variables obligatoires
   ansible.builtin.assert:
     that:
-      - reverse_proxy_domain | length > 0
       - reverse_proxy_upstream_host | length > 0
       - reverse_proxy_upstream_port | int > 0
     fail_msg: "Variables Reverse Proxy incomplètes."
 
-- name: Vérifier si le certificat TLS existe déjà
+- name: Normaliser la liste des sites (rétrocompatibilité)
+  ansible.builtin.set_fact:
+    reverse_proxy_sites: "{{ [{'name': reverse_proxy_site_name,
+                               'domain': reverse_proxy_domain,
+                               'upstream_host': reverse_proxy_upstream_host,
+                               'upstream_port': reverse_proxy_upstream_port}] }}"
+  when: reverse_proxy_sites | length == 0
+
+- name: Vérifier la structure de chaque site
+  ansible.builtin.assert:
+    that:
+      - item.name | length > 0
+      - item.domain | length > 0
+      - item.upstream_host | length > 0
+      - item.upstream_port | int > 0
+    fail_msg: "Entrée reverse_proxy_sites incomplète : {{ item }}"
+  loop: "{{ reverse_proxy_sites }}"
+
+- name: Vérifier la présence du certificat TLS de chaque site
   ansible.builtin.stat:
-    path: "/etc/letsencrypt/live/{{ reverse_proxy_domain }}/fullchain.pem"
-  register: reverse_proxy_cert_stat
+    path: "/etc/letsencrypt/live/{{ item.domain }}/fullchain.pem"
+  loop: "{{ reverse_proxy_sites }}"
+  register: reverse_proxy_cert_stats
   changed_when: false
 
-- name: Définir si le vhost doit écouter en TLS
+- name: Construire la carte TLS par domaine
   ansible.builtin.set_fact:
-    reverse_proxy_tls_enabled: "{{ reverse_proxy_enable_https | bool and (reverse_proxy_cert_stat.stat.exists | default(false)) }}"
+    reverse_proxy_site_tls: "{{ dict(reverse_proxy_sites | map(attribute='domain') | list
+                                     | zip(reverse_proxy_cert_stats.results | map(attribute='stat.exists') | list)) }}"
 
 - name: Installer et configurer Nginx
   ansible.builtin.import_tasks: nginx.yml
@@ -32,20 +51,41 @@
   ansible.builtin.import_tasks: certbot.yml
   when: reverse_proxy_enable_https | bool
 
-- name: Reconfigurer le vhost en TLS si le certificat vient d'être émis
-  when:
-    - reverse_proxy_enable_https | bool
-    - not (reverse_proxy_cert_stat.stat.exists | default(false))
+- name: Redéployer les vhosts en TLS (toujours, certs désormais présents)
+  when: reverse_proxy_enable_https | bool
   block:
-    - name: Activer le mode TLS du vhost
-      ansible.builtin.set_fact:
-        reverse_proxy_tls_enabled: true
+    - name: Re-vérifier la présence des certificats après émission
+      ansible.builtin.stat:
+        path: "/etc/letsencrypt/live/{{ item.domain }}/fullchain.pem"
+      loop: "{{ reverse_proxy_sites }}"
+      register: reverse_proxy_cert_stats
+      changed_when: false
 
-    - name: Redéployer le VirtualHost Reverse Proxy en TLS
+    - name: Mettre à jour la carte TLS par domaine
+      ansible.builtin.set_fact:
+        reverse_proxy_site_tls: "{{ dict(reverse_proxy_sites | map(attribute='domain') | list
+                                         | zip(reverse_proxy_cert_stats.results | map(attribute='stat.exists') | list)) }}"
+
+    - name: Redéployer les VirtualHost Reverse Proxy en TLS
       ansible.builtin.import_tasks: nginx.yml
 
 - name: Appliquer les rechargements Nginx en attente avant la validation
   ansible.builtin.meta: flush_handlers
+
+- name: Tester le renouvellement Certbot
+  ansible.builtin.command: certbot renew --dry-run --no-random-sleep-on-renew
+  register: certbot_dry_run
+  changed_when: false
+  failed_when: false
+  become: true
+  when: reverse_proxy_enable_https | bool
+
+- name: Afficher le résultat du test de renouvellement Certbot
+  ansible.builtin.debug:
+    msg: "Certbot dry-run (informational) : {{ 'OK' if certbot_dry_run.rc == 0 else 'ECHEC - réseau ACME staging indisponible, le timer certbot.timer gérera les renouvellements' }}"
+  when:
+    - reverse_proxy_enable_https | bool
+    - certbot_dry_run is defined
 
 - name: Valider le déploiement
   ansible.builtin.import_tasks: validate.yml

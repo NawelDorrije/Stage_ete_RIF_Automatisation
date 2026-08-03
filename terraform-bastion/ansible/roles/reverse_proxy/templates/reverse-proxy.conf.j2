@@ -1,11 +1,6 @@
-upstream javajs_application {
+upstream {{ reverse_proxy_site_name | replace('-', '_') }}_application {
     server {{ reverse_proxy_upstream_host }}:{{ reverse_proxy_upstream_port }};
     keepalive 32;
-}
-
-map $http_upgrade $connection_upgrade {
-    default upgrade;
-    ''      close;
 }
 
 # Serveur HTTP : sert le défi ACME localement (webroot), puis proxy ou redirige
@@ -34,8 +29,8 @@ server {
         return 301 https://$host$request_uri;
     }
 {% else %}
-    location / {
-        proxy_pass http://javajs_application;
+    location /assets/ {
+        proxy_pass http://{{ reverse_proxy_site_name | replace('-', '_') }}_application;
         proxy_http_version 1.1;
 
         proxy_set_header Host $host;
@@ -53,6 +48,33 @@ server {
         proxy_read_timeout {{ reverse_proxy_read_timeout }}s;
 
         proxy_buffering off;
+
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "{{ reverse_proxy_asset_cache_control }}" always;
+    }
+
+    location / {
+        proxy_pass http://{{ reverse_proxy_site_name | replace('-', '_') }}_application;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_connect_timeout {{ reverse_proxy_connect_timeout }}s;
+        proxy_send_timeout {{ reverse_proxy_send_timeout }}s;
+        proxy_read_timeout {{ reverse_proxy_read_timeout }}s;
+
+        proxy_buffering off;
+
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "{{ reverse_proxy_html_cache_control }}" always;
     }
 {% endif %}
 }
@@ -75,10 +97,9 @@ server {
 
     client_max_body_size {{ reverse_proxy_client_max_body_size }};
 
-    location / {
-        proxy_pass http://javajs_application;
+    location /assets/ {
+        proxy_pass http://{{ reverse_proxy_site_name | replace('-', '_') }}_application;
         proxy_http_version 1.1;
-
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -94,6 +115,32 @@ server {
         proxy_read_timeout {{ reverse_proxy_read_timeout }}s;
 
         proxy_buffering off;
+
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "{{ reverse_proxy_asset_cache_control }}" always;
+    }
+
+    location / {
+        proxy_pass http://{{ reverse_proxy_site_name | replace('-', '_') }}_application;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_connect_timeout {{ reverse_proxy_connect_timeout }}s;
+        proxy_send_timeout {{ reverse_proxy_send_timeout }}s;
+        proxy_read_timeout {{ reverse_proxy_read_timeout }}s;
+
+        proxy_buffering off;
+
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "{{ reverse_proxy_html_cache_control }}" always;
     }
 
     location = /reverse-proxy-health {

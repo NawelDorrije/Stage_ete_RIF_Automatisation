@@ -27,11 +27,18 @@
 
 - name: Installer la tâche cron DuckDNS
   ansible.builtin.cron:
-    name: "Mise à jour DuckDNS {{ duckdns_subdomain }}"
+    name: "Mise à jour DuckDNS"
     minute: "*/{{ duckdns_update_interval_minutes }}"
     job: "/opt/duckdns/update.sh >> /var/log/duckdns.log 2>&1"
     user: root
   become: true
+
+- name: Supprimer les anciennes tâches cron DuckDNS (domaines renommés)
+  ansible.builtin.cron:
+    name: "{{ item }}"
+    state: absent
+  become: true
+  loop: "{{ reverse_proxy_cleanup_cron_names | default([]) }}"
 
 - name: Exécuter une première mise à jour DuckDNS
   ansible.builtin.command: /opt/duckdns/update.sh
