@@ -25,7 +25,7 @@ existing graph, so impact analysis works on things that don't exist yet.
 ```
 INFRA-OPENSTACK (today)
   └─ VM-BASTION (today)
-       ├─ RP-NGINX ─▶ FW-HTTPS ◀─ FW-DOMAIN-DNS ◀─ FW-DNS-FIX ◀─ ISSUE-DNS
+       ├─ RP-NGINX (done 2026-08-03) ─▶ FW-HTTPS ◀─ FW-DOMAIN-DNS ◀─ FW-DNS-FIX ◀─ ISSUE-DNS
        ├─ FW-PROMETHEUS ─▶ FW-GRAFANA
        ├─ FW-VAULT ─▶ (kills ISSUE-SHARED-KEYPAIR, TF_VAR_* secrets)
        └─ FW-CICD ◀─ ISSUE-LOCALHOST-ENDPOINTS (must be solved first)
@@ -43,7 +43,7 @@ INFRA-ANSIBLE (today)
 
 ### `RP-NGINX` — Reverse proxy on the bastion (NGINX or Traefik)
 
-- **Type:** Reverse Proxy · **Layer:** Infrastructure + Security · **Status:** planned
+- **Type:** Reverse Proxy · **Layer:** Infrastructure + Security · **Status:** **implemented (HTTP, 2026-08-03)** — graduated to [reverse-proxy.md](reverse-proxy.md); HTTPS pass 2 still tracked by `FW-HTTPS`
 - **Description:** A reverse proxy co-located on `VM-BASTION` (or a small dedicated VM
   if load demands), terminating HTTP(S) and forwarding to internal VMs
   (LMS-OpenedX :80, Odoo :8069, app ports).
@@ -61,6 +61,8 @@ INFRA-ANSIBLE (today)
   must be revisited.
 - **Future improvements:** HA pair behind the FIP; WAF rules; rate limiting.
 - **Implements:** `FW-REVERSE-PROXY` (E123).
+- **→ Canonical card:** [reverse-proxy.md](reverse-proxy.md) (`RP-NGINX`, first vhost
+  `RP-VHOST-JAVAJS`: `rif-javajs.duckdns.org` → `192.168.100.149:80`).
 
 ### `FW-REVERSE-PROXY` — Central HTTP(S) entry for hosted apps
 
@@ -72,17 +74,25 @@ INFRA-ANSIBLE (today)
 
 ### `FW-HTTPS` — TLS certificates (Let's Encrypt)
 
-- **Type:** Future Work · **Layer:** Security · **Status:** planned
-- **Description:** Automated certificate issuance/renewal (certbot or Traefik ACME)
-  on `RP-NGINX`.
+- **Type:** Future Work · **Layer:** Security · **Status:** **implemented (pass 2, 2026-08-03)** — `rif-javajs.duckdns.org` serves HTTPS via certbot `certonly --webroot`
+- **Description:** Automated certificate issuance/renewal (certbot) on `RP-NGINX`:
+  `certonly --webroot -w /var/www/certbot`; the vhost template owns the nginx config
+  (443 + redirect), so certbot never edits nginx (avoids template/certbot conflicts).
 - **Purpose:** Encrypt user traffic; prerequisite for any real user onboarding.
-- **Dependencies:** `RP-NGINX` (E125), `FW-DOMAIN-DNS` (E126 — ACME HTTP-01 needs a
-  public name pointing at `INFRA-FIP`).
-- **Related Components:** `SG-BASTION` (443 ingress).
-- **Files involved:** future Ansible role / `certbot` timer.
+- **Dependencies:** `RP-NGINX` (E125 — **satisfied**), `FW-DOMAIN-DNS` (E126 — ACME
+  HTTP-01 needs a public name pointing at `INFRA-FIP`; DuckDNS `rif-javajs` now
+  resolves to the bastion, kept in sync by the role's cron).
+- **Related Components:** `SG-BASTION` (443 ingress — **satisfied** via
+  `SG-RULE-BASTION-HTTPS`).
+- **Files involved:** `ansible/roles/reverse_proxy/tasks/certbot.yml`,
+  `ansible/roles/reverse_proxy/templates/reverse-proxy.conf.j2` (TLS server block);
+  toggles `reverse_proxy_enable_https` + `certbot_email` in
+  `ansible/group_vars/bastion.yml`.
 - **Commands:** `certbot certificates`, `openssl s_client -connect <fip>:443 -servername <name>`.
 - **Validation procedure:** TLS handshake valid, expiry > 30 days, auto-renew timer active.
-- **Risks:** renewal failures if port 80 path is broken; rate limits on a shared FIP.
+- **Risks:** renewal failures if port 80 path is broken; rate limits on a shared FIP;
+  the bastion's resolver intermittently drops the first lookup of a new name — the
+  dry-run task retries and DuckDNS/curl use `--retry`.
 - **Future improvements:** wildcard via DNS-01 once `FW-DOMAIN-DNS` supports API.
 
 ### `FW-DOMAIN-DNS` — Domain names for services

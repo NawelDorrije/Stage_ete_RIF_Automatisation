@@ -82,6 +82,7 @@ Every canonical node definition contains:
 | [`graph/vm-integration.md`](graph/vm-integration.md) | Existing VMs, pilot rollout, port association |
 | [`graph/terraform-platform.md`](graph/terraform-platform.md) | Module, provider, backend, variables, outputs, execution order |
 | [`graph/operations.md`](graph/operations.md) | Runbook: all operational procedures + validation ladder |
+| [`graph/reverse-proxy.md`](graph/reverse-proxy.md) | Nginx reverse proxy on the bastion, vhosts (Java-JS) |
 | [`graph/decisions.md`](graph/decisions.md) | All architectural decisions + design principles |
 | [`graph/future-roadmap.md`](graph/future-roadmap.md) | Future work as graph nodes (proxy, HTTPS, DNS, monitoring…) |
 | [`graph/graph.json`](graph/graph.json) | Machine-readable nodes + edges export |

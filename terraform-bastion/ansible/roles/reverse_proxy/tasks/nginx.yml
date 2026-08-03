@@ -1,0 +1,66 @@
+---
+- name: Mettre à jour le cache APT
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Installer Nginx et les outils nécessaires
+  ansible.builtin.apt:
+    name:
+      - nginx
+      - curl
+      - ca-certificates
+    state: present
+  become: true
+
+- name: Déployer les paramètres de durcissement Nginx
+  ansible.builtin.template:
+    src: nginx-hardening.conf.j2
+    dest: /etc/nginx/conf.d/99-reverse-proxy-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify:
+    - Tester la syntaxe Nginx
+    - Recharger Nginx
+
+- name: Déployer le VirtualHost Reverse Proxy
+  ansible.builtin.template:
+    src: reverse-proxy.conf.j2
+    dest: "/etc/nginx/sites-available/{{ reverse_proxy_site_name }}"
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify:
+    - Tester la syntaxe Nginx
+    - Recharger Nginx
+
+- name: Activer le VirtualHost
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ reverse_proxy_site_name }}"
+    dest: "/etc/nginx/sites-enabled/{{ reverse_proxy_site_name }}"
+    state: link
+    force: true
+  become: true
+  notify:
+    - Tester la syntaxe Nginx
+    - Recharger Nginx
+
+- name: Désactiver le site Nginx par défaut
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  become: true
+  notify:
+    - Tester la syntaxe Nginx
+    - Recharger Nginx
+
+- name: S'assurer que Nginx est actif au démarrage
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+  become: true

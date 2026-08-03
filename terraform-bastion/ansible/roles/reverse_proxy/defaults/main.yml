@@ -1,0 +1,30 @@
+---
+reverse_proxy_domain: rif-javajs.duckdns.org
+reverse_proxy_upstream_host: 192.168.100.149
+reverse_proxy_upstream_port: 80
+reverse_proxy_site_name: rif-javajs
+reverse_proxy_client_max_body_size: 20m
+reverse_proxy_read_timeout: 300
+reverse_proxy_connect_timeout: 30
+reverse_proxy_send_timeout: 300
+reverse_proxy_manage_ufw: true
+reverse_proxy_ssh_port: 22
+reverse_proxy_admin_cidrs:
+  - 0.0.0.0/0
+reverse_proxy_manage_duckdns: false
+duckdns_subdomain: rif-javajs
+duckdns_token: ""
+# IP publique du bastion. Vide = auto-détection (IP source vue par DuckDNS) ;
+# renseignez-la explicitement si l'egress du bastion ≠ son IP publique entrante
+# (ex. Floating IP en DNAT-only).
+duckdns_ip: ""
+duckdns_update_interval_minutes: 5
+reverse_proxy_enable_https: false
+# Calculé par le rôle (true seulement si HTTPS activé ET certificat présent).
+# Le template n'inclut le serveur 443 que lorsque ce flag est true.
+reverse_proxy_tls_enabled: false
+certbot_email: admin@example.com
+certbot_redirect_http_to_https: true
+reverse_proxy_validate_upstream: true
+reverse_proxy_validate_public_http: true
+reverse_proxy_validate_public_https: true

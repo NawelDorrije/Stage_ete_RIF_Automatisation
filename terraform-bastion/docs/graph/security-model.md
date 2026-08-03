@@ -1,6 +1,7 @@
 # Feature: Security Model (Security Groups & Trust Boundaries)
 
 > Home document for: `SG-BASTION`, `SG-RULE-BASTION-SSH`, `SG-RULE-BASTION-ICMP`,
+> `SG-RULE-BASTION-HTTP`, `SG-RULE-BASTION-HTTPS`,
 > `SG-PRIVATE-VMS`, `SG-RULE-VM-SSH-FROM-BASTION`, `SG-RULE-VM-ICMP-FROM-BASTION`
 
 ---
@@ -27,7 +28,9 @@
 
 1. **`SG-BASTION`** — attached to `INFRA-BASTION-PORT`; ingress: SSH/22 from
    `TFVAR-ALLOWED-ADMIN-CIDR` (one rule per CIDR via `for_each`), ICMP from
-   `192.168.100.0/24`. Default egress rules kept (`delete_default_rules = false`).
+   `192.168.100.0/24`, HTTP/80 + HTTPS/443 from `0.0.0.0/0` for `RP-NGINX`
+   (user web traffic — added 2026-08-03). Default egress rules kept
+   (`delete_default_rules = false`).
 2. **`SG-PRIVATE-VMS`** — attached to existing VM ports through `SG-ASSOC-PILOT-VMS`;
    ingress: SSH/22 + ICMP **from `SG-BASTION`** (`remote_group_id`, `DEC-008`).
    Default egress kept as well.
@@ -45,7 +48,9 @@ VM-BASTION (port tagged SG-BASTION)
 
 ### Security boundaries
 
-- **B1 public perimeter:** `SG-RULE-BASTION-SSH` — the *only* public ingress in the project.
+- **B1 public perimeter:** `SG-RULE-BASTION-SSH` (admin path) plus
+  `SG-RULE-BASTION-HTTP`/`SG-RULE-BASTION-HTTPS` (user path to `RP-NGINX`) — the
+  *only* public ingress in the project.
 - **B2 internal perimeter:** `SG-RULE-VM-SSH-FROM-BASTION` — internal VMs accept SSH
   exclusively from ports carrying `SG-BASTION`.
 - **B3 diagnostics plane:** ICMP rules (both SGs) enable `VAL-ICMP-PRIVATE` without
@@ -66,15 +71,14 @@ VM-BASTION (port tagged SG-BASTION)
 - **Dependencies:** none (root SG).
 - **Related Components:** protects `VM-BASTION` via `INFRA-BASTION-PORT`; referenced by
   `SG-RULE-VM-*-FROM-BASTION` (`remote_group_id`); rules `SG-RULE-BASTION-SSH`,
-  `SG-RULE-BASTION-ICMP`.
+  `SG-RULE-BASTION-ICMP`, `SG-RULE-BASTION-HTTP`, `SG-RULE-BASTION-HTTPS`.
 - **Files involved:** `security-groups.tf` (lines 1–5), `bastion.tf` (port attachment).
 - **Commands:** `openstack security group show sg-bastion-nawel-test`.
 - **Validation procedure:** `VAL-SG-AUDIT` — only expected ingress rules present;
   attached to exactly one port.
 - **Risks:** overly broad CIDR in `TFVAR-ALLOWED-ADMIN-CIDR` (e.g. `0.0.0.0/0`) silently
   re-exposes SSH to the Internet — always use `/32`.
-- **Future improvements:** `FW-REVERSE-PROXY` will add 80/443 rules here; consider
-  disabling default egress or scoping it.
+- **Future improvements:** consider disabling default egress or scoping it.
 
 ### `SG-RULE-BASTION-SSH` — SSH/22 from allowed admin CIDRs
 
@@ -107,6 +111,38 @@ VM-BASTION (port tagged SG-BASTION)
 - **Validation procedure:** `ping <bastion-private-ip>` from any internal VM succeeds.
 - **Risks:** CIDR literal drifts if subnet is renumbered (see networking.md risk).
 - **Future improvements:** parameterize CIDR via a shared variable.
+
+### `SG-RULE-BASTION-HTTP` — HTTP/80 from anywhere (reverse proxy)
+
+- **Type:** Security Group (rule) · **Layer:** Security
+- **Description:** `openstack_networking_secgroup_rule_v2.bastion_http`; ingress
+  IPv4 tcp/80 from `0.0.0.0/0` (world) — added 2026-08-03 for `RP-NGINX`.
+- **Purpose:** Lets user web traffic reach the Nginx reverse proxy on `VM-BASTION`
+  (and serves the ACME HTTP-01 challenge for `FW-HTTPS`).
+- **Dependencies:** `SG-BASTION`.
+- **Related Components:** `RP-NGINX` (its listener), `FW-HTTPS` (challenge path).
+- **Files involved:** `security-groups.tf` (`bastion_http`).
+- **Commands:** `openstack security group rule list sg-bastion-nawel-test`.
+- **Validation procedure:** `curl -H 'Host: <vhost>' http://<fip>/reverse-proxy-health`
+  from outside → `200`; port 80 closed on every VM except via this proxy path.
+- **Risks:** wide-open by design — mitigated because only Nginx listens on 80 and it
+  only proxies to private upstreams; direct app ports stay unpublished (`DEC-007`).
+- **Future improvements:** none for HTTP itself; long-term it mostly redirects to 443.
+
+### `SG-RULE-BASTION-HTTPS` — HTTPS/443 from anywhere (reverse proxy)
+
+- **Type:** Security Group (rule) · **Layer:** Security
+- **Description:** `openstack_networking_secgroup_rule_v2.bastion_https`; ingress
+  IPv4 tcp/443 from `0.0.0.0/0` — added 2026-08-03 for `RP-NGINX`/`FW-HTTPS`.
+- **Purpose:** TLS-terminated user traffic once `FW-HTTPS` (certbot) is enabled.
+- **Dependencies:** `SG-BASTION`.
+- **Related Components:** `RP-NGINX`, `FW-HTTPS`.
+- **Files involved:** `security-groups.tf` (`bastion_https`).
+- **Commands:** `openssl s_client -connect <fip>:443 -servername <vhost>` (pass 2).
+- **Validation procedure:** pass 2 — `curl -I https://rif-javajs.duckdns.org` → 200
+  with a valid Let's Encrypt chain.
+- **Risks:** none specific; 443 is inert until the TLS vhost exists.
+- **Future improvements:** HSTS once HTTPS proven stable.
 
 ### `SG-PRIVATE-VMS` — `sg-private-vms-via-bastion-test`
 
@@ -163,6 +199,8 @@ VM-BASTION (port tagged SG-BASTION)
 SG-BASTION      PROTECTS   VM-BASTION
 SG-RULE-BASTION-SSH   PART_OF SG-BASTION
 SG-RULE-BASTION-ICMP  PART_OF SG-BASTION
+SG-RULE-BASTION-HTTP  PART_OF SG-BASTION
+SG-RULE-BASTION-HTTPS PART_OF SG-BASTION
 SG-RULE-BASTION-SSH   USES    TFVAR-ALLOWED-ADMIN-CIDR
 SG-PRIVATE-VMS    PROTECTS   VM-FULL-STACK-JS · VM-LMS-OPENEDX · VM-ODOO-SERVER · VM-JAVA-JS
 SG-RULE-VM-SSH-FROM-BASTION  PART_OF SG-PRIVATE-VMS
@@ -189,7 +227,7 @@ FW-ENFORCE-SG     SUPERSEDES DEC-004
 
 ## Terraform Knowledge
 
-- File: `security-groups.tf` — 2 `openstack_networking_secgroup_v2` + 4
+- File: `security-groups.tf` — 2 `openstack_networking_secgroup_v2` + 6
   `openstack_networking_secgroup_rule_v2` resources; one rule uses `for_each` over
   `TFVAR-ALLOWED-ADMIN-CIDR`.
 - `delete_default_rules = false` on both SGs → default egress (any) remains.
@@ -232,7 +270,8 @@ FW-ENFORCE-SG     SUPERSEDES DEC-004
 
 ## Future Roadmap
 
-- 80/443 ingress on `SG-BASTION` when `RP-NGINX` lands (`FW-REVERSE-PROXY`, `FW-HTTPS`).
+- ~~80/443 ingress on `SG-BASTION`~~ — **done 2026-08-03** (`SG-RULE-BASTION-HTTP`,
+  `SG-RULE-BASTION-HTTPS` for `RP-NGINX`; TLS itself tracked by `FW-HTTPS`).
 - Egress scoping (currently default allow-any).
 - `FW-ENFORCE-SG` to close the `DEC-004` temporary gap.
 - Security-group naming/labels per role if MERN onboarding (`FW-MERN-ONBOARDING`)
@@ -246,7 +285,7 @@ FW-ENFORCE-SG     SUPERSEDES DEC-004
 - **Tags:** #security #security-groups #firewall #trust-boundary #neutron
 - **Related Nodes:** `VM-BASTION`, `NET-PRIVATE`, `SG-ASSOC-PILOT-VMS`, `SSH-PROXYJUMP`, `TFVAR-ALLOWED-ADMIN-CIDR`
 - **Parent Nodes:** `PRIN-MIN-EXPOSURE`, `PRIN-SINGLE-ENTRY`, `PRIN-LEAST-PRIVILEGE`
-- **Child Nodes:** `SG-BASTION`, `SG-PRIVATE-VMS`, four `SG-RULE-*` nodes
+- **Child Nodes:** `SG-BASTION`, `SG-PRIVATE-VMS`, six `SG-RULE-*` nodes
 - **Cross References:** [vm-integration.md](vm-integration.md), [ssh-workflows.md](ssh-workflows.md), [decisions.md](decisions.md), [operations.md](operations.md)
 - **Aliases:** groupes de sécurité (fr), firewall rules, Neutron SGs, access policy
 - **Infrastructure Layer:** SG attachments on ports

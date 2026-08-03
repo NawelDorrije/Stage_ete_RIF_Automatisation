@@ -1,0 +1,67 @@
+---
+- name: Créer le répertoire webroot Certbot
+  ansible.builtin.file:
+    path: /var/www/certbot
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
+- name: Installer Certbot
+  ansible.builtin.apt:
+    name:
+      - certbot
+    state: present
+  become: true
+
+- name: Vérifier la résolution DNS du domaine
+  ansible.builtin.command:
+    argv:
+      - getent
+      - ahostsv4
+      - "{{ reverse_proxy_domain }}"
+  register: dns_lookup
+  changed_when: false
+  ignore_errors: true
+  failed_when: false
+
+- name: Afficher la résolution DNS détectée
+  ansible.builtin.debug:
+    var: dns_lookup.stdout_lines
+
+- name: Générer ou renouveler le certificat Let's Encrypt (webroot)
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - certonly
+      - --webroot
+      - -w
+      - /var/www/certbot
+      - --non-interactive
+      - --agree-tos
+      - --email
+      - "{{ certbot_email }}"
+      - --domains
+      - "{{ reverse_proxy_domain }}"
+      - --keep-until-expiring
+      - --expand
+  args:
+    creates: "/etc/letsencrypt/live/{{ reverse_proxy_domain }}/fullchain.pem"
+  become: true
+
+- name: Activer le timer de renouvellement Certbot
+  ansible.builtin.systemd:
+    name: certbot.timer
+    state: started
+    enabled: true
+  become: true
+
+- name: Tester le renouvellement Certbot
+  ansible.builtin.command: certbot renew --dry-run --no-random-sleep-on-renew
+  register: certbot_dry_run
+  until: certbot_dry_run.rc == 0
+  retries: 3
+  delay: 15
+  changed_when: false
+  become: true

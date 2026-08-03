@@ -1,0 +1,51 @@
+---
+- name: Vérifier les variables obligatoires
+  ansible.builtin.assert:
+    that:
+      - reverse_proxy_domain | length > 0
+      - reverse_proxy_upstream_host | length > 0
+      - reverse_proxy_upstream_port | int > 0
+    fail_msg: "Variables Reverse Proxy incomplètes."
+
+- name: Vérifier si le certificat TLS existe déjà
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ reverse_proxy_domain }}/fullchain.pem"
+  register: reverse_proxy_cert_stat
+  changed_when: false
+
+- name: Définir si le vhost doit écouter en TLS
+  ansible.builtin.set_fact:
+    reverse_proxy_tls_enabled: "{{ reverse_proxy_enable_https | bool and (reverse_proxy_cert_stat.stat.exists | default(false)) }}"
+
+- name: Installer et configurer Nginx
+  ansible.builtin.import_tasks: nginx.yml
+
+- name: Configurer le pare-feu
+  ansible.builtin.import_tasks: firewall.yml
+  when: reverse_proxy_manage_ufw | bool
+
+- name: Configurer DuckDNS
+  ansible.builtin.import_tasks: duckdns.yml
+  when: reverse_proxy_manage_duckdns | bool
+
+- name: Configurer HTTPS avec Certbot
+  ansible.builtin.import_tasks: certbot.yml
+  when: reverse_proxy_enable_https | bool
+
+- name: Reconfigurer le vhost en TLS si le certificat vient d'être émis
+  when:
+    - reverse_proxy_enable_https | bool
+    - not (reverse_proxy_cert_stat.stat.exists | default(false))
+  block:
+    - name: Activer le mode TLS du vhost
+      ansible.builtin.set_fact:
+        reverse_proxy_tls_enabled: true
+
+    - name: Redéployer le VirtualHost Reverse Proxy en TLS
+      ansible.builtin.import_tasks: nginx.yml
+
+- name: Appliquer les rechargements Nginx en attente avant la validation
+  ansible.builtin.meta: flush_handlers
+
+- name: Valider le déploiement
+  ansible.builtin.import_tasks: validate.yml

@@ -58,6 +58,8 @@ Machine-readable export: [`graph.json`](graph.json).
 | `SG-BASTION` | `sg-bastion-nawel-test` | Security Group | Security | [security-model.md](security-model.md) |
 | `SG-RULE-BASTION-SSH` | SSH/22 from allowed admin CIDRs | Security Group | Security | [security-model.md](security-model.md) |
 | `SG-RULE-BASTION-ICMP` | ICMP from `192.168.100.0/24` | Security Group | Security | [security-model.md](security-model.md) |
+| `SG-RULE-BASTION-HTTP` | HTTP/80 from `0.0.0.0/0` (reverse proxy) | Security Group | Security | [security-model.md](security-model.md) |
+| `SG-RULE-BASTION-HTTPS` | HTTPS/443 from `0.0.0.0/0` (reverse proxy) | Security Group | Security | [security-model.md](security-model.md) |
 | `SG-PRIVATE-VMS` | `sg-private-vms-via-bastion-test` | Security Group | Security | [security-model.md](security-model.md) |
 | `SG-RULE-VM-SSH-FROM-BASTION` | SSH/22 from bastion SG | Security Group | Security | [security-model.md](security-model.md) |
 | `SG-RULE-VM-ICMP-FROM-BASTION` | ICMP from bastion SG | Security Group | Security | [security-model.md](security-model.md) |
@@ -147,6 +149,8 @@ Machine-readable export: [`graph.json`](graph.json).
 | `OP-CHANGE-ADMIN-CIDR` | Change which admin IPs may reach the bastion |
 | `OP-ROLLBACK` | Roll back a Terraform change |
 | `OP-RUN-ANSIBLE` | Re-apply bastion hardening with Ansible |
+| `OP-DEPLOY-REVERSE-PROXY` | Deploy / update the Nginx reverse proxy vhosts |
+| `OP-DISABLE-REVERSE-PROXY` | Disable a reverse-proxy vhost (rollback) |
 
 ### 1.11 Known Issues (details in home documents)
 
@@ -175,6 +179,7 @@ Machine-readable export: [`graph.json`](graph.json).
 | `VAL-ICMP-PRIVATE` | ping bastion ↔ VMs on `192.168.100.0/24` | `SG-RULE-BASTION-ICMP`, `SG-RULE-VM-ICMP-FROM-BASTION` |
 | `VAL-SG-AUDIT` | OpenStack CLI audit of SG rules/ports | `SG-BASTION`, `SG-PRIVATE-VMS`, `SG-ASSOC-PILOT-VMS` |
 | `VAL-HARDENING` | fail2ban/auditd/sshd config checks | `INFRA-CLOUDINIT`, `INFRA-ANSIBLE` |
+| `VAL-REVERSE-PROXY` | health endpoint + vhost content + nginx -t | `RP-NGINX`, `RP-VHOST-JAVAJS`, `SG-RULE-BASTION-HTTP(S)` |
 
 ### 1.13 SSH Workflows (details in [ssh-workflows.md](ssh-workflows.md))
 
@@ -185,13 +190,19 @@ Machine-readable export: [`graph.json`](graph.json).
 | `SSH-CONFIG` | Persistent `~/.ssh/config` Host aliases |
 | `SSH-SCP-VIA-JUMP` | File transfer through the bastion |
 
+### 1.13b Reverse Proxy (details in [reverse-proxy.md](reverse-proxy.md))
+
+| ID | Name | Type | Layer | Home Document |
+|---|---|---|---|---|
+| `RP-NGINX` | Nginx reverse proxy on the bastion (implemented HTTP) | Reverse Proxy | Infrastructure + Security | [reverse-proxy.md](reverse-proxy.md) |
+| `RP-VHOST-JAVAJS` | Vhost `rif-javajs.duckdns.org` → `192.168.100.149:80` | Reverse Proxy | Infrastructure + Networking | [reverse-proxy.md](reverse-proxy.md) |
+
 ### 1.14 Future Work (details in [future-roadmap.md](future-roadmap.md))
 
 | ID | Future Node | Depends On |
 |---|---|---|
-| `RP-NGINX` | Reverse proxy on the bastion (NGINX/Traefik) | `VM-BASTION` |
 | `FW-REVERSE-PROXY` | Central HTTP(S) entry for hosted apps | `VM-BASTION` |
-| `FW-HTTPS` | TLS certificates (Let's Encrypt) | `RP-NGINX`, `FW-DOMAIN-DNS` |
+| `FW-HTTPS` | TLS certificates (Let's Encrypt) — pass 2 ready, DNS-gated | `RP-NGINX`, `FW-DOMAIN-DNS` |
 | `FW-DOMAIN-DNS` | Domain names for services | `FW-DNS-FIX` |
 | `FW-DNS-FIX` | Complete DNS work of branch `fix/dns-terraform` | `NET-PRIVATE` |
 | `FW-PROMETHEUS` | Metrics collection | all `VM-*` |
@@ -350,6 +361,18 @@ Predicates: `DEPENDS_ON` `USES` `EXPOSES` `CONNECTS_TO` `PROTECTS` `GENERATES`
 | E135 | `VM-ODOO-SERVER` | `DEPENDS_ON` | `NET-PRIVATE` | fixed IP `192.168.100.91` |
 | E136 | `VM-FULL-STACK-JS` | `DEPENDS_ON` | `NET-PRIVATE` | fixed IP `192.168.100.87` |
 | E137 | `VM-JAVA-JS` | `DEPENDS_ON` | `NET-PRIVATE` | fixed IP `192.168.100.149` |
+| E138 | `SG-RULE-BASTION-HTTP` | `PART_OF` | `SG-BASTION` | `security-groups.tf` (2026-08-03) |
+| E139 | `SG-RULE-BASTION-HTTPS` | `PART_OF` | `SG-BASTION` | `security-groups.tf` (2026-08-03) |
+| E140 | `RP-NGINX` | `USES` | `SG-RULE-BASTION-HTTP` | user web ingress |
+| E141 | `RP-NGINX` | `USES` | `SG-RULE-BASTION-HTTPS` | TLS ingress (pass 2) |
+| E142 | `RP-VHOST-JAVAJS` | `PART_OF` | `RP-NGINX` | `sites-available/rif-javajs` |
+| E143 | `RP-VHOST-JAVAJS` | `CONNECTS_TO` | `VM-JAVA-JS` | upstream `192.168.100.149:80` |
+| E144 | `RP-VHOST-JAVAJS` | `EXPOSES` | `VM-JAVA-JS` | web only; VM keeps no FIP requirement |
+| E145 | `OP-DEPLOY-REVERSE-PROXY` | `CONFIGURES` | `RP-NGINX` | `ansible/playbooks/bastion-reverse-proxy.yml` |
+| E146 | `OP-DEPLOY-REVERSE-PROXY` | `DEPENDS_ON` | `SG-RULE-BASTION-HTTP` | SG pass applied first |
+| E147 | `OP-DISABLE-REVERSE-PROXY` | `CONFIGURES` | `RP-NGINX` | `ansible/playbooks/disable-reverse-proxy.yml` |
+| E148 | `VAL-REVERSE-PROXY` | `VALIDATES` | `RP-NGINX` | health endpoint + nginx -t |
+| E149 | `VAL-REVERSE-PROXY` | `VALIDATES` | `RP-VHOST-JAVAJS` | Host-header content checks |
 
 ---
 

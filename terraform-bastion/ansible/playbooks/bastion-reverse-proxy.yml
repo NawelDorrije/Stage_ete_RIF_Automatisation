@@ -1,0 +1,25 @@
+---
+- name: Transformer le Bastion en Reverse Proxy Nginx (Java-JS / DakarCitoyen)
+  hosts: bastion
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Vérifier la distribution cible
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == 'Debian'
+        fail_msg: "Ce playbook est prévu pour Ubuntu/Debian."
+
+    - name: Vérifier l'accès à l'application privée
+      ansible.builtin.uri:
+        url: "http://{{ reverse_proxy_upstream_host }}:{{ reverse_proxy_upstream_port }}"
+        method: HEAD
+        headers:
+          Host: "{{ reverse_proxy_domain }}"
+        status_code: 200
+        timeout: 10
+      changed_when: false
+
+  roles:
+    - role: reverse_proxy

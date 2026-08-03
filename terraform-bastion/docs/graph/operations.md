@@ -2,9 +2,11 @@
 
 > Home document for: `OP-ADD-VM`, `OP-ATTACH-TO-BASTION`, `OP-RETRIEVE-PORT-ID`,
 > `OP-ADD-SSH-KEY`, `OP-VERIFY-ACCESS`, `OP-REMOVE-VM`, `OP-CHANGE-ADMIN-CIDR`,
-> `OP-ROLLBACK`, `OP-RUN-ANSIBLE`, `DEPLOY-ROLLBACK`,
+> `OP-ROLLBACK`, `OP-RUN-ANSIBLE`, `OP-DEPLOY-REVERSE-PROXY`,
+> `OP-DISABLE-REVERSE-PROXY`, `DEPLOY-ROLLBACK`,
 > `VAL-FMT`, `VAL-VALIDATE`, `VAL-PLAN`, `VAL-APPLY`, `VAL-SSH-BASTION`,
-> `VAL-SSH-JUMP`, `VAL-ICMP-PRIVATE`, `VAL-SG-AUDIT`, `VAL-HARDENING`
+> `VAL-SSH-JUMP`, `VAL-ICMP-PRIVATE`, `VAL-SG-AUDIT`, `VAL-HARDENING`,
+> `VAL-REVERSE-PROXY`
 
 This is the executable layer of the graph. Each procedure lists its graph edges:
 what it **configures**, what it **depends on**, and which **validations** prove it.
@@ -37,6 +39,7 @@ what it **configures**, what it **depends on**, and which **validations** prove 
 | 7 | `VAL-SSH-JUMP` | `ssh -J ubuntu@<fip> ubuntu@<vm-ip> hostname` | full two-hop path per VM |
 | 8 | `VAL-ICMP-PRIVATE` | from bastion: `ping -c3 <vm-ip>`; from a VM: `ping -c3 <bastion-private-ip>` | ICMP rules both directions |
 | 9 | `VAL-HARDENING` | on bastion: `systemctl is-active fail2ban auditd`; `sudo sshd -T \| grep -E 'passwordauthentication\|permitrootlogin\|allowagentforwarding'` → `no no no` | host hardening intact |
+| 10 | `VAL-REVERSE-PROXY` | `sudo nginx -t`; `curl -H 'Host: <vhost>' http://<fip>/reverse-proxy-health` → `bastion-reverse-proxy-ok`; `curl -H 'Host: <vhost>' http://<fip>/` → app response | `RP-NGINX` serving vhosts |
 
 **Negative controls (must FAIL):** SSH to a VM private IP from a laptop without `-J`;
 SSH to the bastion from an IP outside `allowed_admin_cidrs`; password authentication
@@ -193,6 +196,67 @@ proceeding.
 - **Risks:** playbook ↔ cloud-init drift if only one is edited (mirror rule:
   any hardening change goes in **both** files).
 
+### `OP-DEPLOY-REVERSE-PROXY` — Deploy / update the Nginx reverse proxy (`RP-NGINX`)
+
+- **Purpose:** publish (or update) a web vhost on the bastion toward a private VM —
+  executed 2026-08-03 for `RP-VHOST-JAVAJS` (pass 1 HTTP).
+- **Depends on:** `SG-RULE-BASTION-HTTP`/`SG-RULE-BASTION-HTTPS` applied;
+  `SSH-DIRECT-BASTION`; upstream reachable from the bastion
+  (`curl -I http://<vm-ip>:<port>`).
+- **Configures:** `RP-NGINX` + its vhosts (Ansible, `DEC-011` path — no Terraform).
+- **Steps:**
+  1. Set variables in `ansible/group_vars/bastion.yml`
+     (`reverse_proxy_domain`, `reverse_proxy_upstream_host/port`,
+     `reverse_proxy_enable_https`).
+  2. `cd ansible && ansible bastion -m ping`.
+  3. `ansible-playbook playbooks/bastion-reverse-proxy.yml --syntax-check`.
+  4. `ansible-playbook playbooks/bastion-reverse-proxy.yml` (idempotent; the role
+     validates upstream, health endpoint and — when DNS is live — public HTTP(S)).
+  5. **Pass 2 (HTTPS, `FW-HTTPS`):** once the DNS record resolves to `INFRA-FIP`,
+     set `reverse_proxy_enable_https: true` + real `certbot_email` in
+     `ansible/group_vars/bastion.yml`, re-run the same playbook. The role issues the
+     cert (`certonly --webroot`, no nginx rewrite) and re-renders the vhost in TLS
+     mode in the same run. `duckdns_ip` must equal the bastion's *entrance* IP
+     (`188.40.148.152`), not its egress IP.
+- **Validation:** `VAL-REVERSE-PROXY`.
+- **Risks:** a failed first run before handler flush can leave the vhost written but
+  never reloaded — fixed in-role with `meta: flush_handlers` before validation;
+  ansible-core ≥ 2.21 rejects handlers built as a top-level `block:` (use chained
+  handlers, see `roles/reverse_proxy/handlers/main.yml`); the bastion's resolver
+  intermittently drops the first lookup of a new name — certbot dry-run uses
+  `--no-random-sleep-on-renew` + retries, and DuckDNS/curl use `--retry` to survive it.
+
+### `OP-DISABLE-REVERSE-PROXY` — Disable a reverse-proxy vhost (rollback)
+
+- **Purpose:** unpublish a vhost without touching the backend VM or its data.
+- **Configures:** `RP-NGINX` (removes the `sites-enabled` symlink only).
+- **Steps:** `ansible-playbook playbooks/disable-reverse-proxy.yml` (optionally
+  `-e reverse_proxy_site_name=<name>`), or manually on the bastion:
+  `sudo rm /etc/nginx/sites-enabled/<site> && sudo nginx -t && sudo systemctl reload nginx`.
+- **Validation:** `curl -H 'Host: <vhost>' http://<fip>/` no longer serves the app;
+  upstream VM untouched.
+- **Risks:** none beyond the intended unpublishing; the TLS certs in
+  `/etc/letsencrypt` are kept for re-enablement.
+
+### `VAL-REVERSE-PROXY` — Reverse proxy validation
+
+- **Purpose:** prove `RP-NGINX` serves correct backends per vhost.
+- **Steps (from any machine):**
+  1. `curl -s -H 'Host: rif-javajs.duckdns.org' http://188.40.148.152/reverse-proxy-health`
+     → `bastion-reverse-proxy-ok`.
+  2. `curl -sL -H 'Host: rif-javajs.duckdns.org' http://188.40.148.152/` → HTML of the
+     DakarCitoyen SPA (`<title>Shadcn Admin</title>`); over the public domain it
+     first answers `301 → https`.
+  3. `curl -s -o /dev/null -w '%{http_code}' https://rif-javajs.duckdns.org/auth/authenticate`
+     → `401`/`403` (backend path proxied, not the SPA fallback; 403 is Spring Security
+     rejecting the unauthenticated call).
+  4. On the bastion: `sudo nginx -t` → syntax ok.
+- **Pass 2 additions:** `curl -I https://rif-javajs.duckdns.org` → 200, valid LE
+  chain (`subject=CN=rif-javajs.duckdns.org`, `Verify return code: 0`);
+  `sudo certbot renew --dry-run`; `systemctl is-active certbot.timer`;
+  `sudo crontab -l` shows the DuckDNS cron (`*/5 * * * * /opt/duckdns/update.sh`).
+- **Validates:** `RP-NGINX`, `RP-VHOST-JAVAJS`, `SG-RULE-BASTION-HTTP(S)`.
+
 ### `OP-ROLLBACK` — Roll back a Terraform change (`DEPLOY-ROLLBACK`)
 
 - **Purpose:** return the graph to its last good state.
@@ -230,6 +294,10 @@ OP-CHANGE-ADMIN-CIDR CONFIGURES SG-RULE-BASTION-SSH
 OP-ROLLBACK         USES        DEPLOY-ROLLBACK
 DEPLOY-ROLLBACK     SUPERSEDES  DEPLOY-APPLY
 OP-RUN-ANSIBLE      USES        INFRA-ANSIBLE
+OP-DEPLOY-REVERSE-PROXY CONFIGURES RP-NGINX
+OP-DEPLOY-REVERSE-PROXY DEPENDS_ON SG-RULE-BASTION-HTTP · SG-RULE-BASTION-HTTPS
+OP-DISABLE-REVERSE-PROXY CONFIGURES RP-NGINX
+VAL-REVERSE-PROXY   VALIDATES   RP-NGINX · RP-VHOST-JAVAJS
 VAL-VALIDATE/PLAN   VALIDATES   TFMOD-ROOT
 VAL-SSH-BASTION     VALIDATES   VM-BASTION · SG-BASTION
 VAL-SSH-JUMP        VALIDATES   SG-PRIVATE-VMS · SG-ASSOC-PILOT-VMS

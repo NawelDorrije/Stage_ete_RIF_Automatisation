@@ -1,0 +1,52 @@
+---
+- name: Tester la syntaxe Nginx
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  become: true
+
+- name: Tester l'upstream privé depuis le Bastion
+  ansible.builtin.uri:
+    url: "http://{{ reverse_proxy_upstream_host }}:{{ reverse_proxy_upstream_port }}"
+    method: HEAD
+    headers:
+      Host: "{{ reverse_proxy_domain }}"
+    status_code: 200
+    timeout: 10
+  changed_when: false
+  when: reverse_proxy_validate_upstream | bool
+
+- name: Tester le VirtualHost local
+  ansible.builtin.uri:
+    url: http://127.0.0.1/reverse-proxy-health
+    headers:
+      Host: "{{ reverse_proxy_domain }}"
+    return_content: true
+    status_code: 200
+  register: local_health
+  changed_when: false
+
+- name: Vérifier le contenu du health check
+  ansible.builtin.assert:
+    that:
+      - "'bastion-reverse-proxy-ok' in local_health.content"
+
+- name: Tester le domaine en HTTP
+  ansible.builtin.uri:
+    url: "http://{{ reverse_proxy_domain }}"
+    method: HEAD
+    status_code: [200, 301, 302, 308]
+    timeout: 15
+  changed_when: false
+  when: reverse_proxy_validate_public_http | bool
+
+- name: Tester le domaine en HTTPS
+  ansible.builtin.uri:
+    url: "https://{{ reverse_proxy_domain }}"
+    method: HEAD
+    status_code: 200
+    timeout: 15
+    validate_certs: true
+  changed_when: false
+  when:
+    - reverse_proxy_enable_https | bool
+    - reverse_proxy_validate_public_https | bool

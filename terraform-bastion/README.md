@@ -5,6 +5,12 @@ Hardened SSH bastion on OpenStack: a single public entry point
 (`192.168.100.0/24`), protecting the training VMs (LMS-OpenedX, Odoo,
 Full-Stack-JS, Java-JS) behind bastion-only security groups.
 
+Since 2026-08-03 the bastion also runs an **Nginx reverse proxy** (Ansible role
+`reverse_proxy`): the same Floating IP multiplexes SSH/22 + HTTP/80 + HTTPS/443.
+First vhost live: `https://rif-javajs.duckdns.org` → DakarCitoyen frontend on
+`192.168.100.149:80` (HTTP + HTTPS; Let's Encrypt via certbot `certonly --webroot`,
+DuckDNS record `rif-javajs` auto-maintained by a cron on the bastion).
+
 - Terraform ≥ 1.7 · provider `openstack ~> 1.53.0` · state in Terraform Cloud
   (`rif-stagiaires` / `Nawel-Bastion-Test`)
 - Quick access: `terraform output` prints ready-to-use `ssh` / `ssh -J` commands.
@@ -30,6 +36,7 @@ Feature documents:
 | Existing VM integration (pilot rollout) | [docs/graph/vm-integration.md](docs/graph/vm-integration.md) |
 | Terraform platform (module, variables, outputs) | [docs/graph/terraform-platform.md](docs/graph/terraform-platform.md) |
 | Operations runbook (procedures, validation) | [docs/graph/operations.md](docs/graph/operations.md) |
+| Reverse proxy (Nginx vhosts on the bastion) | [docs/graph/reverse-proxy.md](docs/graph/reverse-proxy.md) |
 | Decisions & principles (ADR) | [docs/graph/decisions.md](docs/graph/decisions.md) |
 | Future roadmap (proxy, HTTPS, DNS, monitoring…) | [docs/graph/future-roadmap.md](docs/graph/future-roadmap.md) |
 
@@ -40,6 +47,23 @@ terraform init && terraform plan && terraform apply
 terraform output ssh_bastion          # ssh ubuntu@<floating-ip>
 terraform output ssh_lms_openedx      # ssh -J ubuntu@<floating-ip> ubuntu@192.168.100.55
 ```
+
+## Reverse proxy (Ansible)
+
+```bash
+cd ansible
+cp inventory.ini.example inventory.ini   # adapter la clé SSH
+ansible-galaxy collection install community.general
+ansible bastion -m ping
+# Token DuckDNS : ansible/group_vars/all/vault.yml (gitignoré) -> duckdns_token
+#   + duckdns_ip=188.40.148.152, reverse_proxy_enable_https: true, certbot_email
+#   dans group_vars/bastion.yml (HTTPS déjà actif : idempotent, changed=0)
+ansible-playbook playbooks/bastion-reverse-proxy.yml
+```
+
+Checks: `curl https://rif-javajs.duckdns.org/reverse-proxy-health` →
+`bastion-reverse-proxy-ok`; `curl -I https://rif-javajs.duckdns.org` → 200.
+Rollback: `playbooks/disable-reverse-proxy.yml`.
 
 Rules of the house: never give a VM a Floating IP (`DEC-007`); never rely on
 `user_data` changes after first boot (`ISSUE-USERDATA-DRIFT` — use Ansible);

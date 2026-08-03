@@ -1,0 +1,40 @@
+---
+- name: Vérifier le token DuckDNS
+  ansible.builtin.assert:
+    that:
+      - duckdns_token | length > 0
+    fail_msg: "duckdns_token est obligatoire."
+  no_log: true
+
+- name: Créer le répertoire DuckDNS
+  ansible.builtin.file:
+    path: /opt/duckdns
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  become: true
+
+- name: Déployer le script DuckDNS
+  ansible.builtin.template:
+    src: duckdns-update.sh.j2
+    dest: /opt/duckdns/update.sh
+    owner: root
+    group: root
+    mode: '0700'
+  become: true
+  no_log: true
+
+- name: Installer la tâche cron DuckDNS
+  ansible.builtin.cron:
+    name: "Mise à jour DuckDNS {{ duckdns_subdomain }}"
+    minute: "*/{{ duckdns_update_interval_minutes }}"
+    job: "/opt/duckdns/update.sh >> /var/log/duckdns.log 2>&1"
+    user: root
+  become: true
+
+- name: Exécuter une première mise à jour DuckDNS
+  ansible.builtin.command: /opt/duckdns/update.sh
+  changed_when: false
+  become: true
+  no_log: true
