@@ -1,0 +1,2261 @@
+{
+  "schema_version": "1.0",
+  "project": "terraform-bastion",
+  "repository_root": "Stage_ete_RIF_Automatisation",
+  "generated": "2026-07-30",
+  "description": "Machine-readable knowledge graph of the terraform-bastion OpenStack infrastructure. Canonical human-readable version: INDEX.md and feature documents in this directory.",
+  "layers": [
+    "infrastructure",
+    "networking",
+    "security",
+    "terraform",
+    "operational"
+  ],
+  "predicates": [
+    "DEPENDS_ON",
+    "USES",
+    "EXPOSES",
+    "CONNECTS_TO",
+    "PROTECTS",
+    "GENERATES",
+    "CONFIGURES",
+    "VALIDATES",
+    "IMPLEMENTS",
+    "REPLACES",
+    "IS_ACCESSED_VIA",
+    "PART_OF",
+    "RELATED_TO",
+    "SUPERSEDES"
+  ],
+  "nodes": [
+    {
+      "id": "ACTOR-ADMINS",
+      "name": "Administrators / Developers",
+      "type": "actor",
+      "layers": [
+        "operational"
+      ],
+      "home": "ssh-workflows.md",
+      "summary": "Human operators whose IPs/keys gate all SSH access."
+    },
+    {
+      "id": "INFRA-OPENSTACK",
+      "name": "OpenStack Cloud (local, RegionOne)",
+      "type": "infrastructure_component",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "networking.md",
+      "summary": "All-in-one OpenStack; auth via Identity v3; endpoints overridden to 127.0.0.1."
+    },
+    {
+      "id": "INFRA-OPENSTACK-ENDPOINTS",
+      "name": "Localhost Endpoint Overrides",
+      "type": "infrastructure_component",
+      "layers": [
+        "networking"
+      ],
+      "home": "networking.md",
+      "summary": "identity:5000, compute:8774, network:9696, image:19292, volumev3:8776 on 127.0.0.1."
+    },
+    {
+      "id": "INFRA-TFCLOUD",
+      "name": "Terraform Cloud Backend",
+      "type": "infrastructure_component",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "org rif-stagiaires, workspace Nawel-Bastion-Test; remote state, no local tfstate."
+    },
+    {
+      "id": "INFRA-BASTION-PORT",
+      "name": "bastion-nawel-test-port",
+      "type": "infrastructure_component",
+      "layers": [
+        "networking"
+      ],
+      "home": "bastion-host.md",
+      "summary": "Terraform-managed Neutron port on the private network; prevent_destroy."
+    },
+    {
+      "id": "INFRA-FIP",
+      "name": "Pre-existing Floating IP",
+      "type": "infrastructure_component",
+      "layers": [
+        "networking"
+      ],
+      "home": "bastion-host.md",
+      "summary": "Manually pre-allocated public IP; Terraform associates but never creates it (DEC-001)."
+    },
+    {
+      "id": "INFRA-FIP-ASSOC",
+      "name": "Floating IP Association",
+      "type": "infrastructure_component",
+      "layers": [
+        "networking"
+      ],
+      "home": "bastion-host.md",
+      "summary": "openstack_networking_floatingip_associate_v2 binding INFRA-FIP to INFRA-BASTION-PORT."
+    },
+    {
+      "id": "INFRA-KEYPAIR",
+      "name": "Full_Stack_JS_key",
+      "type": "infrastructure_component",
+      "layers": [
+        "security"
+      ],
+      "home": "bastion-host.md",
+      "summary": "Pre-existing shared keypair injected at boot (DEC-010, ISSUE-SHARED-KEYPAIR)."
+    },
+    {
+      "id": "INFRA-IMAGE",
+      "name": "Ubuntu-22.04",
+      "type": "infrastructure_component",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "bastion-host.md",
+      "summary": "Glance image, resolved with most_recent=true."
+    },
+    {
+      "id": "INFRA-FLAVOR",
+      "name": "m1.small-custom",
+      "type": "infrastructure_component",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "bastion-host.md",
+      "summary": "Bastion sizing flavor."
+    },
+    {
+      "id": "INFRA-CLOUDINIT",
+      "name": "Bastion Cloud-Init Hardening",
+      "type": "infrastructure_component",
+      "layers": [
+        "security"
+      ],
+      "home": "bastion-host.md",
+      "summary": "user_data: key-only SSH, fail2ban, auditd, unattended-upgrades, 99-bastion.conf; frozen after first boot (DEC-003)."
+    },
+    {
+      "id": "INFRA-ANSIBLE",
+      "name": "ansible/bastion-hardening.yml",
+      "type": "infrastructure_component",
+      "layers": [
+        "security"
+      ],
+      "home": "bastion-host.md",
+      "summary": "Idempotent hardening playbook; the only post-boot change path (DEC-011)."
+    },
+    {
+      "id": "VM-BASTION",
+      "name": "bastion-nawel-test",
+      "type": "vm",
+      "layers": [
+        "infrastructure",
+        "security"
+      ],
+      "home": "bastion-host.md",
+      "summary": "Single hardened SSH entrypoint; prevent_destroy; ignore_changes=user_data."
+    },
+    {
+      "id": "VM-FULL-STACK-JS",
+      "name": "Full-Stack-JS",
+      "type": "vm",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "vm-integration.md",
+      "ip": "192.168.100.87",
+      "summary": "Legacy training VM, pilot phase 1."
+    },
+    {
+      "id": "VM-LMS-OPENEDX",
+      "name": "LMS-OpenedX",
+      "type": "vm",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "vm-integration.md",
+      "ip": "192.168.100.55",
+      "summary": "Legacy Open edX VM, pilot phase 1."
+    },
+    {
+      "id": "VM-ODOO-SERVER",
+      "name": "Odoo Server",
+      "type": "vm",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "vm-integration.md",
+      "ip": "192.168.100.91",
+      "summary": "Legacy Odoo VM, phase 2."
+    },
+    {
+      "id": "VM-JAVA-JS",
+      "name": "Java-JS",
+      "type": "vm",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "vm-integration.md",
+      "ip": "192.168.100.149",
+      "summary": "Legacy Java/JS VM, phase 2."
+    },
+    {
+      "id": "VM-MERN-FRONTEND",
+      "name": "MERN Frontend",
+      "type": "vm",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned",
+      "summary": "Future MERN UI tier (tfvars placeholder)."
+    },
+    {
+      "id": "VM-MERN-BACKEND",
+      "name": "MERN Backend",
+      "type": "vm",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned",
+      "summary": "Future MERN API tier (tfvars placeholder)."
+    },
+    {
+      "id": "VM-MERN-MONGODB",
+      "name": "MERN MongoDB",
+      "type": "vm",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned",
+      "summary": "Future MERN DB tier (tfvars placeholder)."
+    },
+    {
+      "id": "NET-PRIVATE",
+      "name": "reseau-stagiaires",
+      "type": "network",
+      "layers": [
+        "networking"
+      ],
+      "home": "networking.md",
+      "summary": "Pre-existing tenant network hosting all VMs (data source only)."
+    },
+    {
+      "id": "NET-PRIVATE-SUBNET",
+      "name": "subnet-stagiaires",
+      "type": "network",
+      "layers": [
+        "networking"
+      ],
+      "home": "networking.md",
+      "cidr": "192.168.100.0/24",
+      "summary": "Subnet of NET-PRIVATE; addressing plan for bastion and VMs."
+    },
+    {
+      "id": "NET-EXTERNAL",
+      "name": "public",
+      "type": "network",
+      "layers": [
+        "networking"
+      ],
+      "home": "networking.md",
+      "summary": "External provider network; pool of INFRA-FIP."
+    },
+    {
+      "id": "SG-BASTION",
+      "name": "sg-bastion-nawel-test",
+      "type": "security_group",
+      "layers": [
+        "security"
+      ],
+      "home": "security-model.md",
+      "summary": "Only public ingress: SSH/22 from allowed admin CIDRs + ICMP from private subnet."
+    },
+    {
+      "id": "SG-RULE-BASTION-SSH",
+      "name": "bastion_ssh",
+      "type": "security_group_rule",
+      "layers": [
+        "security"
+      ],
+      "home": "security-model.md",
+      "summary": "for_each allowed_admin_cidrs: ingress tcp/22."
+    },
+    {
+      "id": "SG-RULE-BASTION-ICMP",
+      "name": "bastion_icmp_private",
+      "type": "security_group_rule",
+      "layers": [
+        "security"
+      ],
+      "home": "security-model.md",
+      "summary": "ingress icmp from 192.168.100.0/24."
+    },
+    {
+      "id": "SG-PRIVATE-VMS",
+      "name": "sg-private-vms-via-bastion-test",
+      "type": "security_group",
+      "layers": [
+        "security"
+      ],
+      "home": "security-model.md",
+      "summary": "Internal trust policy: SSH/ICMP only from SG-BASTION (remote_group_id)."
+    },
+    {
+      "id": "SG-RULE-VM-SSH-FROM-BASTION",
+      "name": "vm_ssh_from_bastion",
+      "type": "security_group_rule",
+      "layers": [
+        "security"
+      ],
+      "home": "security-model.md",
+      "summary": "ingress tcp/22 with remote_group_id=SG-BASTION (DEC-008)."
+    },
+    {
+      "id": "SG-RULE-VM-ICMP-FROM-BASTION",
+      "name": "vm_icmp_from_bastion",
+      "type": "security_group_rule",
+      "layers": [
+        "security"
+      ],
+      "home": "security-model.md",
+      "summary": "ingress icmp with remote_group_id=SG-BASTION."
+    },
+    {
+      "id": "SG-ASSOC-PILOT-VMS",
+      "name": "port_secgroup_associate tested_vms",
+      "type": "security_group",
+      "layers": [
+        "security",
+        "terraform"
+      ],
+      "home": "vm-integration.md",
+      "summary": "for_each existing_vm_ports; attach SG-PRIVATE-VMS with enforce=false (DEC-004)."
+    },
+    {
+      "id": "TFMOD-ROOT",
+      "name": "terraform-bastion root module",
+      "type": "terraform_module",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Single module; required_version>=1.7.0; provider openstack ~>1.53.0 (locked 1.53.0)."
+    },
+    {
+      "id": "TFVAR-OS-USERNAME",
+      "name": "os_username",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "OpenStack user (required)."
+    },
+    {
+      "id": "TFVAR-OS-PASSWORD",
+      "name": "os_password",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform",
+        "security"
+      ],
+      "home": "terraform-platform.md",
+      "sensitive": true,
+      "summary": "OpenStack password (required, sensitive)."
+    },
+    {
+      "id": "TFVAR-OS-PROJECT-NAME",
+      "name": "os_project_name",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "OpenStack tenant (required)."
+    },
+    {
+      "id": "TFVAR-OS-USER-DOMAIN-NAME",
+      "name": "os_user_domain_name",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "default": "Default",
+      "summary": "User domain; declared in providers.tf."
+    },
+    {
+      "id": "TFVAR-OS-PROJECT-DOMAIN-NAME",
+      "name": "os_project_domain_name",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "default": "Default",
+      "summary": "Project domain; declared in providers.tf."
+    },
+    {
+      "id": "TFVAR-PRIVATE-NETWORK-NAME",
+      "name": "private_network_name",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "default": "reseau-stagiaires",
+      "summary": "Names the legacy private network."
+    },
+    {
+      "id": "TFVAR-PRIVATE-SUBNET-NAME",
+      "name": "private_subnet_name",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "default": "subnet-stagiaires",
+      "summary": "Names the private subnet."
+    },
+    {
+      "id": "TFVAR-EXTERNAL-NETWORK-NAME",
+      "name": "external_network_name",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "default": "public",
+      "summary": "Names the external network."
+    },
+    {
+      "id": "TFVAR-FLOATING-IP-SUBNET-ID",
+      "name": "floating_ip_subnet_id",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Required but used only by commented-out FIP resource (ISSUE-ORPHAN-FIP-SUBNET-VAR)."
+    },
+    {
+      "id": "TFVAR-BASTION-NAME",
+      "name": "bastion_name",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "default": "bastion-nawel-test",
+      "summary": "Instance/port naming."
+    },
+    {
+      "id": "TFVAR-BASTION-IMAGE-NAME",
+      "name": "bastion_image_name",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "default": "Ubuntu-22.04",
+      "summary": "Image selector."
+    },
+    {
+      "id": "TFVAR-BASTION-FLAVOR-NAME",
+      "name": "bastion_flavor_name",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "default": "m1.small-custom",
+      "summary": "Flavor selector."
+    },
+    {
+      "id": "TFVAR-EXISTING-KEYPAIR-NAME",
+      "name": "existing_keypair_name",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "default": "Full_Stack_JS_key",
+      "summary": "Boot keypair name."
+    },
+    {
+      "id": "TFVAR-ADMIN-SSH-KEYS",
+      "name": "admin_ssh_keys",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform",
+        "security"
+      ],
+      "home": "terraform-platform.md",
+      "sensitive": true,
+      "default": [],
+      "summary": "Extra authorized keys; FIRST BOOT ONLY (ISSUE-USERDATA-DRIFT)."
+    },
+    {
+      "id": "TFVAR-ALLOWED-ADMIN-CIDR",
+      "name": "allowed_admin_cidrs",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform",
+        "security"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Admin source allowlist for SSH to bastion; use /32."
+    },
+    {
+      "id": "TFVAR-EXISTING-VM-PORTS",
+      "name": "existing_vm_ports",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "map logical_name -> Neutron Port UUID (ISSUE-MANUAL-PORT-ID)."
+    },
+    {
+      "id": "TFVAR-BASTION-FLOATING-IP",
+      "name": "bastion_floating_ip",
+      "type": "terraform_variable",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Value of the pre-existing FIP; embedded in all ssh_* outputs."
+    },
+    {
+      "id": "TFOUT-BASTION-PRIVATE-IP",
+      "name": "bastion_private_ip",
+      "type": "terraform_output",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "port all_fixed_ips[0]."
+    },
+    {
+      "id": "TFOUT-BASTION-FLOATING-IP",
+      "name": "bastion_floating_ip",
+      "type": "terraform_output",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Echo of TFVAR-BASTION-FLOATING-IP."
+    },
+    {
+      "id": "TFOUT-SSH-BASTION",
+      "name": "ssh_bastion",
+      "type": "terraform_output",
+      "layers": [
+        "terraform",
+        "operational"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "ssh ubuntu@<fip>."
+    },
+    {
+      "id": "TFOUT-SSH-LMS-OPENEDX",
+      "name": "ssh_lms_openedx",
+      "type": "terraform_output",
+      "layers": [
+        "terraform",
+        "operational"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "ssh -J ubuntu@<fip> ubuntu@192.168.100.55 (hardcoded IP)."
+    },
+    {
+      "id": "TFOUT-SSH-ODOO-SERVER",
+      "name": "ssh_odoo_server",
+      "type": "terraform_output",
+      "layers": [
+        "terraform",
+        "operational"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "ssh -J ubuntu@<fip> ubuntu@192.168.100.91 (hardcoded IP)."
+    },
+    {
+      "id": "TFOUT-SSH-FULL-STACK-JS",
+      "name": "ssh_full_stack_js",
+      "type": "terraform_output",
+      "layers": [
+        "terraform",
+        "operational"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "ssh -J ubuntu@<fip> ubuntu@192.168.100.87 (hardcoded IP)."
+    },
+    {
+      "id": "TFOUT-SSH-JAVA-JS",
+      "name": "ssh_java_js",
+      "type": "terraform_output",
+      "layers": [
+        "terraform",
+        "operational"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "ssh -J ubuntu@<fip> ubuntu@192.168.100.149 (hardcoded IP)."
+    },
+    {
+      "id": "TFDATA-PRIVATE-NETWORK",
+      "name": "data.openstack_networking_network_v2.private",
+      "type": "terraform_data_source",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Lookup NET-PRIVATE by name."
+    },
+    {
+      "id": "TFDATA-PRIVATE-SUBNET",
+      "name": "data.openstack_networking_subnet_v2.private",
+      "type": "terraform_data_source",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Lookup NET-PRIVATE-SUBNET by name."
+    },
+    {
+      "id": "TFDATA-EXTERNAL-NETWORK",
+      "name": "data.openstack_networking_network_v2.external",
+      "type": "terraform_data_source",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Lookup NET-EXTERNAL by name (reserved)."
+    },
+    {
+      "id": "TFDATA-UBUNTU-IMAGE",
+      "name": "data.openstack_images_image_v2.ubuntu",
+      "type": "terraform_data_source",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Newest Ubuntu-22.04 image."
+    },
+    {
+      "id": "TFDATA-BASTION-FLAVOR",
+      "name": "data.openstack_compute_flavor_v2.bastion",
+      "type": "terraform_data_source",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Flavor lookup by name."
+    },
+    {
+      "id": "DEPLOY-INIT",
+      "name": "terraform init",
+      "type": "deployment_step",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Install provider 1.53.0, wire TFC backend."
+    },
+    {
+      "id": "DEPLOY-PLAN",
+      "name": "terraform plan",
+      "type": "deployment_step",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Diff + human review gate."
+    },
+    {
+      "id": "DEPLOY-APPLY",
+      "name": "terraform apply",
+      "type": "deployment_step",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md",
+      "summary": "Execute plan, write remote state."
+    },
+    {
+      "id": "DEPLOY-ROLLBACK",
+      "name": "rollback via git revert + apply",
+      "type": "deployment_step",
+      "layers": [
+        "terraform",
+        "operational"
+      ],
+      "home": "operations.md",
+      "summary": "Code-level rollback is default; state rollback exceptional."
+    },
+    {
+      "id": "DEC-001",
+      "name": "Reuse pre-existing Floating IP",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "Terraform never creates the FIP; managed resource kept commented."
+    },
+    {
+      "id": "DEC-002",
+      "name": "prevent_destroy on bastion + port",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "apply physically cannot remove the access layer."
+    },
+    {
+      "id": "DEC-003",
+      "name": "ignore_changes=user_data; Ansible for post-boot",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "Prevents rebuild-on-hardening-edit; causes ISSUE-USERDATA-DRIFT."
+    },
+    {
+      "id": "DEC-004",
+      "name": "enforce=false on pilot SG association",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "Additive protection; legacy SGs preserved during test phase."
+    },
+    {
+      "id": "DEC-005",
+      "name": "Pilot rollout order",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "FullStack+LMS first, Odoo+JavaJS after validation, MERN later."
+    },
+    {
+      "id": "DEC-006",
+      "name": "ProxyJump only; no agent forwarding",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "AllowAgentForwarding no; bastion never holds user keys."
+    },
+    {
+      "id": "DEC-007",
+      "name": "Single public entry point",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "No internal VM gets a FIP or public SG rule."
+    },
+    {
+      "id": "DEC-008",
+      "name": "SG-to-SG referencing",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "remote_group_id instead of CIDRs for internal SSH/ICMP."
+    },
+    {
+      "id": "DEC-009",
+      "name": "Terraform Cloud remote backend",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "Shared locked state; no local tfstate."
+    },
+    {
+      "id": "DEC-010",
+      "name": "Reuse keypair Full_Stack_JS_key",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "Pragmatic reuse; accepts ISSUE-SHARED-KEYPAIR."
+    },
+    {
+      "id": "DEC-011",
+      "name": "Dual hardening cloud-init + Ansible",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "Mirror discipline: hardening edits go in both files."
+    },
+    {
+      "id": "DEC-012",
+      "name": "Hardcoded localhost endpoint_overrides",
+      "type": "decision",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md",
+      "summary": "Deterministic for the all-in-one cloud; causes ISSUE-LOCALHOST-ENDPOINTS."
+    },
+    {
+      "id": "PRIN-SINGLE-ENTRY",
+      "name": "Single controlled entry point",
+      "type": "design_principle",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md"
+    },
+    {
+      "id": "PRIN-MIN-EXPOSURE",
+      "name": "Minimal public attack surface",
+      "type": "design_principle",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md"
+    },
+    {
+      "id": "PRIN-LEAST-PRIVILEGE",
+      "name": "Least privilege",
+      "type": "design_principle",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md"
+    },
+    {
+      "id": "PRIN-IAC",
+      "name": "Everything through code",
+      "type": "design_principle",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md"
+    },
+    {
+      "id": "PRIN-NON-DESTRUCTIVE-TESTING",
+      "name": "Non-destructive migration testing",
+      "type": "design_principle",
+      "layers": [
+        "operational"
+      ],
+      "home": "decisions.md"
+    },
+    {
+      "id": "OP-ADD-VM",
+      "name": "Add a new VM",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "OP-ATTACH-TO-BASTION",
+      "name": "Attach a VM to the bastion model",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "OP-RETRIEVE-PORT-ID",
+      "name": "Retrieve a Neutron Port ID",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "OP-ADD-SSH-KEY",
+      "name": "Add an SSH public key",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "OP-VERIFY-ACCESS",
+      "name": "Verify end-to-end access",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "OP-REMOVE-VM",
+      "name": "Remove a VM from bastion control",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "OP-CHANGE-ADMIN-CIDR",
+      "name": "Change allowed admin CIDRs",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "OP-ROLLBACK",
+      "name": "Roll back a Terraform change",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "OP-RUN-ANSIBLE",
+      "name": "Re-apply bastion hardening",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "ISSUE-USERDATA-DRIFT",
+      "name": "user_data ignored after first boot",
+      "type": "known_issue",
+      "layers": [
+        "terraform",
+        "operational"
+      ],
+      "home": "bastion-host.md"
+    },
+    {
+      "id": "ISSUE-SHARED-KEYPAIR",
+      "name": "Shared keypair across VMs",
+      "type": "known_issue",
+      "layers": [
+        "security"
+      ],
+      "home": "bastion-host.md"
+    },
+    {
+      "id": "ISSUE-LOCALHOST-ENDPOINTS",
+      "name": "127.0.0.1 endpoints require local run or tunnel",
+      "type": "known_issue",
+      "layers": [
+        "operational",
+        "networking"
+      ],
+      "home": "networking.md"
+    },
+    {
+      "id": "ISSUE-DNS",
+      "name": "Unresolved DNS work (branch fix/dns-terraform)",
+      "type": "known_issue",
+      "layers": [
+        "networking"
+      ],
+      "home": "networking.md"
+    },
+    {
+      "id": "ISSUE-MANUAL-PORT-ID",
+      "name": "Port IDs pasted manually",
+      "type": "known_issue",
+      "layers": [
+        "operational"
+      ],
+      "home": "vm-integration.md"
+    },
+    {
+      "id": "ISSUE-HARDCODED-IPS",
+      "name": "Hardcoded private IPs in outputs",
+      "type": "known_issue",
+      "layers": [
+        "terraform",
+        "operational"
+      ],
+      "home": "terraform-platform.md"
+    },
+    {
+      "id": "ISSUE-ORPHAN-FIP-SUBNET-VAR",
+      "name": "Required variable unused by active code",
+      "type": "known_issue",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md"
+    },
+    {
+      "id": "ISSUE-TFVARS-EXAMPLE-INCOMPLETE",
+      "name": "tfvars example omits 4 required inputs",
+      "type": "known_issue",
+      "layers": [
+        "terraform",
+        "operational"
+      ],
+      "home": "terraform-platform.md"
+    },
+    {
+      "id": "ISSUE-LOCKFILE-GITIGNORE",
+      "name": "Ineffective lock-file gitignore pattern (leading space)",
+      "type": "known_issue",
+      "layers": [
+        "terraform"
+      ],
+      "home": "terraform-platform.md"
+    },
+    {
+      "id": "VAL-FMT",
+      "name": "terraform fmt -check",
+      "type": "validation",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "VAL-VALIDATE",
+      "name": "terraform validate",
+      "type": "validation",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "VAL-PLAN",
+      "name": "terraform plan review",
+      "type": "validation",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "VAL-APPLY",
+      "name": "terraform apply success",
+      "type": "validation",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "VAL-SSH-BASTION",
+      "name": "SSH to bastion",
+      "type": "validation",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "VAL-SSH-JUMP",
+      "name": "SSH through bastion to VM",
+      "type": "validation",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "VAL-ICMP-PRIVATE",
+      "name": "ICMP bastion<->VM",
+      "type": "validation",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "VAL-SG-AUDIT",
+      "name": "OpenStack SG/port audit",
+      "type": "validation",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "VAL-HARDENING",
+      "name": "fail2ban/auditd/sshd checks",
+      "type": "validation",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md"
+    },
+    {
+      "id": "SSH-DIRECT-BASTION",
+      "name": "ssh ubuntu@<fip>",
+      "type": "ssh_workflow",
+      "layers": [
+        "operational"
+      ],
+      "home": "ssh-workflows.md"
+    },
+    {
+      "id": "SSH-PROXYJUMP",
+      "name": "ssh -J ubuntu@<fip> ubuntu@<vm-ip>",
+      "type": "ssh_workflow",
+      "layers": [
+        "operational"
+      ],
+      "home": "ssh-workflows.md"
+    },
+    {
+      "id": "SSH-CONFIG",
+      "name": "~/.ssh/config host aliases",
+      "type": "ssh_workflow",
+      "layers": [
+        "operational"
+      ],
+      "home": "ssh-workflows.md"
+    },
+    {
+      "id": "SSH-SCP-VIA-JUMP",
+      "name": "scp/rsync through bastion",
+      "type": "ssh_workflow",
+      "layers": [
+        "operational"
+      ],
+      "home": "ssh-workflows.md"
+    },
+    {
+      "id": "RP-NGINX",
+      "name": "Nginx reverse proxy on the bastion",
+      "type": "reverse_proxy",
+      "layers": [
+        "infrastructure",
+        "security"
+      ],
+      "home": "reverse-proxy.md",
+      "status": "implemented-https",
+      "summary": "Nginx on VM-BASTION via ansible/roles/reverse_proxy; hardening conf.d, nginx -t gated reloads; HTTP+HTTPS, TLS rendered by template (certonly webroot)."
+    },
+    {
+      "id": "FW-REVERSE-PROXY",
+      "name": "Central HTTP(S) entry",
+      "type": "future_work",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned",
+      "summary": "Capability node; implemented for Java-JS by RP-NGINX (HTTP+HTTPS, 2026-08-03)."
+    },
+    {
+      "id": "FW-HTTPS",
+      "name": "TLS via Let's Encrypt",
+      "type": "future_work",
+      "layers": [
+        "security"
+      ],
+      "home": "future-roadmap.md",
+      "status": "implemented",
+      "summary": "Implemented 2026-08-03: certbot certonly --webroot on RP-NGINX; vhost template owns 443+redirect, certbot never edits nginx."
+    },
+    {
+      "id": "FW-DOMAIN-DNS",
+      "name": "Domain names for services",
+      "type": "future_work",
+      "layers": [
+        "networking"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned"
+    },
+    {
+      "id": "FW-DNS-FIX",
+      "name": "Complete fix/dns-terraform DNS work",
+      "type": "future_work",
+      "layers": [
+        "networking"
+      ],
+      "home": "future-roadmap.md",
+      "status": "in_progress"
+    },
+    {
+      "id": "FW-PROMETHEUS",
+      "name": "Prometheus metrics",
+      "type": "future_work",
+      "layers": [
+        "operational"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned"
+    },
+    {
+      "id": "FW-GRAFANA",
+      "name": "Grafana dashboards",
+      "type": "future_work",
+      "layers": [
+        "operational"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned"
+    },
+    {
+      "id": "FW-VAULT",
+      "name": "Vault secrets management",
+      "type": "future_work",
+      "layers": [
+        "security"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned"
+    },
+    {
+      "id": "FW-CICD",
+      "name": "CI/CD for Terraform/Ansible",
+      "type": "future_work",
+      "layers": [
+        "operational",
+        "terraform"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned"
+    },
+    {
+      "id": "FW-ENFORCE-SG",
+      "name": "Exclusive SG control post-pilot",
+      "type": "future_work",
+      "layers": [
+        "security"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned"
+    },
+    {
+      "id": "FW-MERN-ONBOARDING",
+      "name": "Onboard MERN stack",
+      "type": "future_work",
+      "layers": [
+        "infrastructure"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned"
+    },
+    {
+      "id": "FW-PORT-AUTODISCOVERY",
+      "name": "Data-source port lookup",
+      "type": "future_work",
+      "layers": [
+        "terraform"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned"
+    },
+    {
+      "id": "FW-INVENTORY-AUTOMATION",
+      "name": "Generate Ansible inventory from outputs",
+      "type": "future_work",
+      "layers": [
+        "operational"
+      ],
+      "home": "future-roadmap.md",
+      "status": "planned"
+    },
+    {
+      "id": "SG-RULE-BASTION-HTTP",
+      "name": "bastion_http",
+      "type": "security_group_rule",
+      "layers": [
+        "security"
+      ],
+      "home": "security-model.md",
+      "summary": "ingress tcp/80 from 0.0.0.0/0 for RP-NGINX (2026-08-03)."
+    },
+    {
+      "id": "SG-RULE-BASTION-HTTPS",
+      "name": "bastion_https",
+      "type": "security_group_rule",
+      "layers": [
+        "security"
+      ],
+      "home": "security-model.md",
+      "summary": "ingress tcp/443 from 0.0.0.0/0 for RP-NGINX/FW-HTTPS (2026-08-03)."
+    },
+    {
+      "id": "RP-VHOST-JAVAJS",
+      "name": "Vhost rif-javajs.duckdns.org",
+      "type": "reverse_proxy",
+      "layers": [
+        "infrastructure",
+        "networking"
+      ],
+      "home": "reverse-proxy.md",
+      "status": "implemented-https",
+      "summary": "upstream javajs_application = 192.168.100.149:80 (DakarCitoyen frontend); /reverse-proxy-health endpoint; HTTPS 443 + 80->301 redirect."
+    },
+    {
+      "id": "OP-DEPLOY-REVERSE-PROXY",
+      "name": "Deploy/update reverse proxy",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md",
+      "summary": "ansible/playbooks/bastion-reverse-proxy.yml; pass 1 HTTP done, pass 2 HTTPS DNS-gated."
+    },
+    {
+      "id": "OP-DISABLE-REVERSE-PROXY",
+      "name": "Disable reverse proxy vhost",
+      "type": "operational_procedure",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md",
+      "summary": "ansible/playbooks/disable-reverse-proxy.yml; removes sites-enabled symlink only."
+    },
+    {
+      "id": "VAL-REVERSE-PROXY",
+      "name": "Reverse proxy validation",
+      "type": "validation",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md",
+      "summary": "Host-header curl checks: /reverse-proxy-health, SPA title, /auth 401, nginx -t."
+    }
+  ],
+  "edges": [
+    {
+      "id": "E001",
+      "s": "NET-PRIVATE-SUBNET",
+      "p": "PART_OF",
+      "o": "NET-PRIVATE"
+    },
+    {
+      "id": "E002",
+      "s": "INFRA-BASTION-PORT",
+      "p": "CONNECTS_TO",
+      "o": "NET-PRIVATE"
+    },
+    {
+      "id": "E003",
+      "s": "INFRA-BASTION-PORT",
+      "p": "USES",
+      "o": "NET-PRIVATE-SUBNET"
+    },
+    {
+      "id": "E004",
+      "s": "VM-BASTION",
+      "p": "USES",
+      "o": "INFRA-BASTION-PORT"
+    },
+    {
+      "id": "E005",
+      "s": "VM-BASTION",
+      "p": "CONNECTS_TO",
+      "o": "NET-PRIVATE"
+    },
+    {
+      "id": "E006",
+      "s": "INFRA-FIP-ASSOC",
+      "p": "CONNECTS_TO",
+      "o": "INFRA-BASTION-PORT"
+    },
+    {
+      "id": "E007",
+      "s": "INFRA-FIP-ASSOC",
+      "p": "USES",
+      "o": "INFRA-FIP"
+    },
+    {
+      "id": "E008",
+      "s": "VM-BASTION",
+      "p": "IS_ACCESSED_VIA",
+      "o": "INFRA-FIP"
+    },
+    {
+      "id": "E009",
+      "s": "INFRA-FIP",
+      "p": "PART_OF",
+      "o": "NET-EXTERNAL"
+    },
+    {
+      "id": "E010",
+      "s": "NET-EXTERNAL",
+      "p": "CONNECTS_TO",
+      "o": "NET-PRIVATE"
+    },
+    {
+      "id": "E011",
+      "s": "VM-BASTION",
+      "p": "USES",
+      "o": "INFRA-IMAGE"
+    },
+    {
+      "id": "E012",
+      "s": "VM-BASTION",
+      "p": "USES",
+      "o": "INFRA-FLAVOR"
+    },
+    {
+      "id": "E013",
+      "s": "VM-BASTION",
+      "p": "USES",
+      "o": "INFRA-KEYPAIR"
+    },
+    {
+      "id": "E014",
+      "s": "INFRA-CLOUDINIT",
+      "p": "CONFIGURES",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E015",
+      "s": "INFRA-ANSIBLE",
+      "p": "CONFIGURES",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E016",
+      "s": "INFRA-ANSIBLE",
+      "p": "REPLACES",
+      "o": "INFRA-CLOUDINIT"
+    },
+    {
+      "id": "E017",
+      "s": "VM-BASTION",
+      "p": "EXPOSES",
+      "o": "TFVAR-ALLOWED-ADMIN-CIDR",
+      "note": "SSH/22 only to these CIDRs"
+    },
+    {
+      "id": "E018",
+      "s": "ACTOR-ADMINS",
+      "p": "CONNECTS_TO",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E019",
+      "s": "ACTOR-ADMINS",
+      "p": "CONNECTS_TO",
+      "o": "VM-FULL-STACK-JS"
+    },
+    {
+      "id": "E020",
+      "s": "ACTOR-ADMINS",
+      "p": "CONNECTS_TO",
+      "o": "VM-LMS-OPENEDX"
+    },
+    {
+      "id": "E021",
+      "s": "ACTOR-ADMINS",
+      "p": "CONNECTS_TO",
+      "o": "VM-ODOO-SERVER"
+    },
+    {
+      "id": "E022",
+      "s": "ACTOR-ADMINS",
+      "p": "CONNECTS_TO",
+      "o": "VM-JAVA-JS"
+    },
+    {
+      "id": "E023",
+      "s": "SSH-DIRECT-BASTION",
+      "p": "IS_ACCESSED_VIA",
+      "o": "INFRA-FIP"
+    },
+    {
+      "id": "E024",
+      "s": "SSH-PROXYJUMP",
+      "p": "USES",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E025",
+      "s": "SSH-PROXYJUMP",
+      "p": "CONNECTS_TO",
+      "o": "VM-LMS-OPENEDX"
+    },
+    {
+      "id": "E026",
+      "s": "SSH-PROXYJUMP",
+      "p": "CONNECTS_TO",
+      "o": "VM-ODOO-SERVER"
+    },
+    {
+      "id": "E027",
+      "s": "SSH-PROXYJUMP",
+      "p": "CONNECTS_TO",
+      "o": "VM-FULL-STACK-JS"
+    },
+    {
+      "id": "E028",
+      "s": "SSH-PROXYJUMP",
+      "p": "CONNECTS_TO",
+      "o": "VM-JAVA-JS"
+    },
+    {
+      "id": "E029",
+      "s": "SSH-CONFIG",
+      "p": "IMPLEMENTS",
+      "o": "SSH-PROXYJUMP"
+    },
+    {
+      "id": "E030",
+      "s": "SSH-SCP-VIA-JUMP",
+      "p": "DEPENDS_ON",
+      "o": "SSH-PROXYJUMP"
+    },
+    {
+      "id": "E031",
+      "s": "SG-BASTION",
+      "p": "PROTECTS",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E032",
+      "s": "SG-RULE-BASTION-SSH",
+      "p": "PART_OF",
+      "o": "SG-BASTION"
+    },
+    {
+      "id": "E033",
+      "s": "SG-RULE-BASTION-ICMP",
+      "p": "PART_OF",
+      "o": "SG-BASTION"
+    },
+    {
+      "id": "E034",
+      "s": "SG-RULE-BASTION-SSH",
+      "p": "USES",
+      "o": "TFVAR-ALLOWED-ADMIN-CIDR"
+    },
+    {
+      "id": "E035",
+      "s": "SG-PRIVATE-VMS",
+      "p": "PROTECTS",
+      "o": "VM-FULL-STACK-JS"
+    },
+    {
+      "id": "E036",
+      "s": "SG-PRIVATE-VMS",
+      "p": "PROTECTS",
+      "o": "VM-LMS-OPENEDX"
+    },
+    {
+      "id": "E037",
+      "s": "SG-PRIVATE-VMS",
+      "p": "PROTECTS",
+      "o": "VM-ODOO-SERVER"
+    },
+    {
+      "id": "E038",
+      "s": "SG-PRIVATE-VMS",
+      "p": "PROTECTS",
+      "o": "VM-JAVA-JS"
+    },
+    {
+      "id": "E039",
+      "s": "SG-RULE-VM-SSH-FROM-BASTION",
+      "p": "PART_OF",
+      "o": "SG-PRIVATE-VMS"
+    },
+    {
+      "id": "E040",
+      "s": "SG-RULE-VM-ICMP-FROM-BASTION",
+      "p": "PART_OF",
+      "o": "SG-PRIVATE-VMS"
+    },
+    {
+      "id": "E041",
+      "s": "SG-RULE-VM-SSH-FROM-BASTION",
+      "p": "DEPENDS_ON",
+      "o": "SG-BASTION"
+    },
+    {
+      "id": "E042",
+      "s": "SG-RULE-VM-ICMP-FROM-BASTION",
+      "p": "DEPENDS_ON",
+      "o": "SG-BASTION"
+    },
+    {
+      "id": "E043",
+      "s": "SG-ASSOC-PILOT-VMS",
+      "p": "USES",
+      "o": "SG-PRIVATE-VMS"
+    },
+    {
+      "id": "E044",
+      "s": "SG-ASSOC-PILOT-VMS",
+      "p": "USES",
+      "o": "TFVAR-EXISTING-VM-PORTS"
+    },
+    {
+      "id": "E045",
+      "s": "SG-ASSOC-PILOT-VMS",
+      "p": "CONFIGURES",
+      "o": "VM-FULL-STACK-JS"
+    },
+    {
+      "id": "E046",
+      "s": "SG-ASSOC-PILOT-VMS",
+      "p": "CONFIGURES",
+      "o": "VM-LMS-OPENEDX"
+    },
+    {
+      "id": "E047",
+      "s": "SG-BASTION",
+      "p": "IMPLEMENTS",
+      "o": "PRIN-MIN-EXPOSURE"
+    },
+    {
+      "id": "E048",
+      "s": "SG-PRIVATE-VMS",
+      "p": "IMPLEMENTS",
+      "o": "PRIN-SINGLE-ENTRY"
+    },
+    {
+      "id": "E049",
+      "s": "DEC-001",
+      "p": "RELATED_TO",
+      "o": "INFRA-FIP"
+    },
+    {
+      "id": "E050",
+      "s": "DEC-001",
+      "p": "IMPLEMENTS",
+      "o": "PRIN-NON-DESTRUCTIVE-TESTING"
+    },
+    {
+      "id": "E051",
+      "s": "DEC-001",
+      "p": "RELATED_TO",
+      "o": "ISSUE-ORPHAN-FIP-SUBNET-VAR"
+    },
+    {
+      "id": "E052",
+      "s": "DEC-002",
+      "p": "RELATED_TO",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E053",
+      "s": "DEC-002",
+      "p": "RELATED_TO",
+      "o": "INFRA-BASTION-PORT"
+    },
+    {
+      "id": "E054",
+      "s": "DEC-003",
+      "p": "RELATED_TO",
+      "o": "INFRA-CLOUDINIT"
+    },
+    {
+      "id": "E055",
+      "s": "DEC-003",
+      "p": "RELATED_TO",
+      "o": "ISSUE-USERDATA-DRIFT"
+    },
+    {
+      "id": "E056",
+      "s": "DEC-004",
+      "p": "RELATED_TO",
+      "o": "SG-ASSOC-PILOT-VMS"
+    },
+    {
+      "id": "E057",
+      "s": "DEC-005",
+      "p": "RELATED_TO",
+      "o": "SG-ASSOC-PILOT-VMS"
+    },
+    {
+      "id": "E058",
+      "s": "DEC-006",
+      "p": "RELATED_TO",
+      "o": "SSH-PROXYJUMP"
+    },
+    {
+      "id": "E059",
+      "s": "DEC-007",
+      "p": "IMPLEMENTS",
+      "o": "PRIN-SINGLE-ENTRY"
+    },
+    {
+      "id": "E060",
+      "s": "DEC-008",
+      "p": "IMPLEMENTS",
+      "o": "PRIN-LEAST-PRIVILEGE"
+    },
+    {
+      "id": "E061",
+      "s": "DEC-009",
+      "p": "RELATED_TO",
+      "o": "INFRA-TFCLOUD"
+    },
+    {
+      "id": "E062",
+      "s": "DEC-010",
+      "p": "RELATED_TO",
+      "o": "INFRA-KEYPAIR"
+    },
+    {
+      "id": "E063",
+      "s": "DEC-010",
+      "p": "RELATED_TO",
+      "o": "ISSUE-SHARED-KEYPAIR"
+    },
+    {
+      "id": "E064",
+      "s": "DEC-011",
+      "p": "RELATED_TO",
+      "o": "INFRA-ANSIBLE"
+    },
+    {
+      "id": "E065",
+      "s": "DEC-012",
+      "p": "RELATED_TO",
+      "o": "INFRA-OPENSTACK-ENDPOINTS"
+    },
+    {
+      "id": "E066",
+      "s": "DEC-012",
+      "p": "RELATED_TO",
+      "o": "ISSUE-LOCALHOST-ENDPOINTS"
+    },
+    {
+      "id": "E067",
+      "s": "TFMOD-ROOT",
+      "p": "CONFIGURES",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E068",
+      "s": "TFMOD-ROOT",
+      "p": "CONFIGURES",
+      "o": "INFRA-BASTION-PORT"
+    },
+    {
+      "id": "E069",
+      "s": "TFMOD-ROOT",
+      "p": "CONFIGURES",
+      "o": "INFRA-FIP-ASSOC"
+    },
+    {
+      "id": "E070",
+      "s": "TFMOD-ROOT",
+      "p": "CONFIGURES",
+      "o": "SG-BASTION"
+    },
+    {
+      "id": "E071",
+      "s": "TFMOD-ROOT",
+      "p": "CONFIGURES",
+      "o": "SG-PRIVATE-VMS"
+    },
+    {
+      "id": "E072",
+      "s": "TFMOD-ROOT",
+      "p": "CONFIGURES",
+      "o": "SG-ASSOC-PILOT-VMS"
+    },
+    {
+      "id": "E073",
+      "s": "TFMOD-ROOT",
+      "p": "DEPENDS_ON",
+      "o": "INFRA-OPENSTACK"
+    },
+    {
+      "id": "E074",
+      "s": "TFMOD-ROOT",
+      "p": "USES",
+      "o": "INFRA-TFCLOUD"
+    },
+    {
+      "id": "E075",
+      "s": "TFMOD-ROOT",
+      "p": "GENERATES",
+      "o": "TFOUT-BASTION-PRIVATE-IP"
+    },
+    {
+      "id": "E076",
+      "s": "TFMOD-ROOT",
+      "p": "GENERATES",
+      "o": "TFOUT-BASTION-FLOATING-IP"
+    },
+    {
+      "id": "E077",
+      "s": "TFMOD-ROOT",
+      "p": "GENERATES",
+      "o": "TFOUT-SSH-BASTION"
+    },
+    {
+      "id": "E078",
+      "s": "TFMOD-ROOT",
+      "p": "GENERATES",
+      "o": "TFOUT-SSH-LMS-OPENEDX"
+    },
+    {
+      "id": "E079",
+      "s": "TFMOD-ROOT",
+      "p": "GENERATES",
+      "o": "TFOUT-SSH-ODOO-SERVER"
+    },
+    {
+      "id": "E080",
+      "s": "TFMOD-ROOT",
+      "p": "GENERATES",
+      "o": "TFOUT-SSH-FULL-STACK-JS"
+    },
+    {
+      "id": "E081",
+      "s": "TFMOD-ROOT",
+      "p": "GENERATES",
+      "o": "TFOUT-SSH-JAVA-JS"
+    },
+    {
+      "id": "E082",
+      "s": "TFDATA-PRIVATE-NETWORK",
+      "p": "DEPENDS_ON",
+      "o": "NET-PRIVATE"
+    },
+    {
+      "id": "E083",
+      "s": "TFDATA-PRIVATE-SUBNET",
+      "p": "DEPENDS_ON",
+      "o": "NET-PRIVATE-SUBNET"
+    },
+    {
+      "id": "E084",
+      "s": "TFDATA-EXTERNAL-NETWORK",
+      "p": "DEPENDS_ON",
+      "o": "NET-EXTERNAL"
+    },
+    {
+      "id": "E085",
+      "s": "TFDATA-UBUNTU-IMAGE",
+      "p": "DEPENDS_ON",
+      "o": "INFRA-IMAGE"
+    },
+    {
+      "id": "E086",
+      "s": "TFDATA-BASTION-FLAVOR",
+      "p": "DEPENDS_ON",
+      "o": "INFRA-FLAVOR"
+    },
+    {
+      "id": "E087",
+      "s": "TFVAR-BASTION-FLOATING-IP",
+      "p": "CONFIGURES",
+      "o": "INFRA-FIP-ASSOC"
+    },
+    {
+      "id": "E088",
+      "s": "TFVAR-ADMIN-SSH-KEYS",
+      "p": "CONFIGURES",
+      "o": "INFRA-CLOUDINIT"
+    },
+    {
+      "id": "E089",
+      "s": "TFVAR-EXISTING-KEYPAIR-NAME",
+      "p": "CONFIGURES",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E090",
+      "s": "TFVAR-BASTION-NAME",
+      "p": "CONFIGURES",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E091",
+      "s": "TFVAR-BASTION-IMAGE-NAME",
+      "p": "CONFIGURES",
+      "o": "TFDATA-UBUNTU-IMAGE"
+    },
+    {
+      "id": "E092",
+      "s": "TFVAR-BASTION-FLAVOR-NAME",
+      "p": "CONFIGURES",
+      "o": "TFDATA-BASTION-FLAVOR"
+    },
+    {
+      "id": "E093",
+      "s": "TFVAR-PRIVATE-NETWORK-NAME",
+      "p": "CONFIGURES",
+      "o": "TFDATA-PRIVATE-NETWORK"
+    },
+    {
+      "id": "E094",
+      "s": "TFVAR-PRIVATE-SUBNET-NAME",
+      "p": "CONFIGURES",
+      "o": "TFDATA-PRIVATE-SUBNET"
+    },
+    {
+      "id": "E095",
+      "s": "TFVAR-EXTERNAL-NETWORK-NAME",
+      "p": "CONFIGURES",
+      "o": "TFDATA-EXTERNAL-NETWORK"
+    },
+    {
+      "id": "E096",
+      "s": "TFVAR-OS-USERNAME",
+      "p": "CONFIGURES",
+      "o": "INFRA-OPENSTACK",
+      "note": "provider auth"
+    },
+    {
+      "id": "E097",
+      "s": "TFVAR-OS-PASSWORD",
+      "p": "CONFIGURES",
+      "o": "INFRA-OPENSTACK",
+      "note": "provider auth"
+    },
+    {
+      "id": "E098",
+      "s": "TFVAR-OS-PROJECT-NAME",
+      "p": "CONFIGURES",
+      "o": "INFRA-OPENSTACK",
+      "note": "provider auth"
+    },
+    {
+      "id": "E099",
+      "s": "TFOUT-BASTION-PRIVATE-IP",
+      "p": "DEPENDS_ON",
+      "o": "INFRA-BASTION-PORT"
+    },
+    {
+      "id": "E100",
+      "s": "DEPLOY-PLAN",
+      "p": "DEPENDS_ON",
+      "o": "DEPLOY-INIT"
+    },
+    {
+      "id": "E101",
+      "s": "DEPLOY-APPLY",
+      "p": "DEPENDS_ON",
+      "o": "DEPLOY-PLAN"
+    },
+    {
+      "id": "E102",
+      "s": "DEPLOY-INIT",
+      "p": "DEPENDS_ON",
+      "o": "INFRA-TFCLOUD"
+    },
+    {
+      "id": "E103",
+      "s": "DEPLOY-ROLLBACK",
+      "p": "SUPERSEDES",
+      "o": "DEPLOY-APPLY"
+    },
+    {
+      "id": "E104",
+      "s": "VAL-VALIDATE",
+      "p": "VALIDATES",
+      "o": "TFMOD-ROOT"
+    },
+    {
+      "id": "E105",
+      "s": "VAL-PLAN",
+      "p": "VALIDATES",
+      "o": "TFMOD-ROOT"
+    },
+    {
+      "id": "E106",
+      "s": "VAL-SSH-BASTION",
+      "p": "VALIDATES",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E107",
+      "s": "VAL-SSH-BASTION",
+      "p": "VALIDATES",
+      "o": "SG-BASTION"
+    },
+    {
+      "id": "E108",
+      "s": "VAL-SSH-JUMP",
+      "p": "VALIDATES",
+      "o": "SG-PRIVATE-VMS"
+    },
+    {
+      "id": "E109",
+      "s": "VAL-ICMP-PRIVATE",
+      "p": "VALIDATES",
+      "o": "SG-RULE-VM-ICMP-FROM-BASTION"
+    },
+    {
+      "id": "E110",
+      "s": "VAL-SG-AUDIT",
+      "p": "VALIDATES",
+      "o": "SG-ASSOC-PILOT-VMS"
+    },
+    {
+      "id": "E111",
+      "s": "VAL-HARDENING",
+      "p": "VALIDATES",
+      "o": "INFRA-CLOUDINIT"
+    },
+    {
+      "id": "E112",
+      "s": "OP-ADD-VM",
+      "p": "DEPENDS_ON",
+      "o": "OP-RETRIEVE-PORT-ID"
+    },
+    {
+      "id": "E113",
+      "s": "OP-ATTACH-TO-BASTION",
+      "p": "PART_OF",
+      "o": "OP-ADD-VM"
+    },
+    {
+      "id": "E114",
+      "s": "OP-ATTACH-TO-BASTION",
+      "p": "CONFIGURES",
+      "o": "SG-ASSOC-PILOT-VMS"
+    },
+    {
+      "id": "E115",
+      "s": "OP-ADD-SSH-KEY",
+      "p": "RELATED_TO",
+      "o": "ISSUE-USERDATA-DRIFT"
+    },
+    {
+      "id": "E116",
+      "s": "OP-VERIFY-ACCESS",
+      "p": "USES",
+      "o": "SSH-PROXYJUMP"
+    },
+    {
+      "id": "E117",
+      "s": "OP-REMOVE-VM",
+      "p": "CONFIGURES",
+      "o": "SG-ASSOC-PILOT-VMS"
+    },
+    {
+      "id": "E118",
+      "s": "OP-CHANGE-ADMIN-CIDR",
+      "p": "CONFIGURES",
+      "o": "SG-RULE-BASTION-SSH"
+    },
+    {
+      "id": "E119",
+      "s": "OP-ROLLBACK",
+      "p": "USES",
+      "o": "DEPLOY-ROLLBACK"
+    },
+    {
+      "id": "E120",
+      "s": "OP-RUN-ANSIBLE",
+      "p": "USES",
+      "o": "INFRA-ANSIBLE"
+    },
+    {
+      "id": "E121",
+      "s": "FW-ENFORCE-SG",
+      "p": "SUPERSEDES",
+      "o": "DEC-004"
+    },
+    {
+      "id": "E122",
+      "s": "FW-PORT-AUTODISCOVERY",
+      "p": "SUPERSEDES",
+      "o": "ISSUE-MANUAL-PORT-ID"
+    },
+    {
+      "id": "E123",
+      "s": "RP-NGINX",
+      "p": "IMPLEMENTS",
+      "o": "FW-REVERSE-PROXY"
+    },
+    {
+      "id": "E124",
+      "s": "RP-NGINX",
+      "p": "DEPENDS_ON",
+      "o": "VM-BASTION"
+    },
+    {
+      "id": "E125",
+      "s": "FW-HTTPS",
+      "p": "DEPENDS_ON",
+      "o": "RP-NGINX"
+    },
+    {
+      "id": "E126",
+      "s": "FW-HTTPS",
+      "p": "DEPENDS_ON",
+      "o": "FW-DOMAIN-DNS"
+    },
+    {
+      "id": "E127",
+      "s": "FW-DOMAIN-DNS",
+      "p": "DEPENDS_ON",
+      "o": "FW-DNS-FIX"
+    },
+    {
+      "id": "E128",
+      "s": "FW-DNS-FIX",
+      "p": "RELATED_TO",
+      "o": "ISSUE-DNS"
+    },
+    {
+      "id": "E129",
+      "s": "FW-GRAFANA",
+      "p": "DEPENDS_ON",
+      "o": "FW-PROMETHEUS"
+    },
+    {
+      "id": "E130",
+      "s": "FW-MERN-ONBOARDING",
+      "p": "DEPENDS_ON",
+      "o": "SG-ASSOC-PILOT-VMS"
+    },
+    {
+      "id": "E131",
+      "s": "FW-INVENTORY-AUTOMATION",
+      "p": "DEPENDS_ON",
+      "o": "INFRA-ANSIBLE"
+    },
+    {
+      "id": "E132",
+      "s": "ISSUE-HARDCODED-IPS",
+      "p": "RELATED_TO",
+      "o": "TFOUT-SSH-LMS-OPENEDX",
+      "note": "applies to all four ssh_* outputs"
+    },
+    {
+      "id": "E133",
+      "s": "ISSUE-LOCALHOST-ENDPOINTS",
+      "p": "RELATED_TO",
+      "o": "DEPLOY-INIT"
+    },
+    {
+      "id": "E134",
+      "s": "VM-LMS-OPENEDX",
+      "p": "DEPENDS_ON",
+      "o": "NET-PRIVATE"
+    },
+    {
+      "id": "E135",
+      "s": "VM-ODOO-SERVER",
+      "p": "DEPENDS_ON",
+      "o": "NET-PRIVATE"
+    },
+    {
+      "id": "E136",
+      "s": "VM-FULL-STACK-JS",
+      "p": "DEPENDS_ON",
+      "o": "NET-PRIVATE"
+    },
+    {
+      "id": "E137",
+      "s": "VM-JAVA-JS",
+      "p": "DEPENDS_ON",
+      "o": "NET-PRIVATE"
+    },
+    {
+      "id": "E138",
+      "note": "security-groups.tf (2026-08-03)",
+      "s": "SG-RULE-BASTION-HTTP",
+      "p": "PART_OF",
+      "o": "SG-BASTION"
+    },
+    {
+      "id": "E139",
+      "note": "security-groups.tf (2026-08-03)",
+      "s": "SG-RULE-BASTION-HTTPS",
+      "p": "PART_OF",
+      "o": "SG-BASTION"
+    },
+    {
+      "id": "E140",
+      "note": "user web ingress",
+      "s": "RP-NGINX",
+      "p": "USES",
+      "o": "SG-RULE-BASTION-HTTP"
+    },
+    {
+      "id": "E141",
+      "note": "TLS ingress (pass 2)",
+      "s": "RP-NGINX",
+      "p": "USES",
+      "o": "SG-RULE-BASTION-HTTPS"
+    },
+    {
+      "id": "E142",
+      "note": "sites-available/rif-javajs",
+      "s": "RP-VHOST-JAVAJS",
+      "p": "PART_OF",
+      "o": "RP-NGINX"
+    },
+    {
+      "id": "E143",
+      "note": "upstream 192.168.100.149:80",
+      "s": "RP-VHOST-JAVAJS",
+      "p": "CONNECTS_TO",
+      "o": "VM-JAVA-JS"
+    },
+    {
+      "id": "E144",
+      "note": "web only; VM keeps no FIP requirement",
+      "s": "RP-VHOST-JAVAJS",
+      "p": "EXPOSES",
+      "o": "VM-JAVA-JS"
+    },
+    {
+      "id": "E145",
+      "note": "ansible/playbooks/bastion-reverse-proxy.yml",
+      "s": "OP-DEPLOY-REVERSE-PROXY",
+      "p": "CONFIGURES",
+      "o": "RP-NGINX"
+    },
+    {
+      "id": "E146",
+      "note": "SG pass applied first",
+      "s": "OP-DEPLOY-REVERSE-PROXY",
+      "p": "DEPENDS_ON",
+      "o": "SG-RULE-BASTION-HTTP"
+    },
+    {
+      "id": "E147",
+      "note": "ansible/playbooks/disable-reverse-proxy.yml",
+      "s": "OP-DISABLE-REVERSE-PROXY",
+      "p": "CONFIGURES",
+      "o": "RP-NGINX"
+    },
+    {
+      "id": "E148",
+      "note": "health endpoint + nginx -t",
+      "s": "VAL-REVERSE-PROXY",
+      "p": "VALIDATES",
+      "o": "RP-NGINX"
+    },
+    {
+      "id": "E149",
+      "note": "Host-header content checks",
+      "s": "VAL-REVERSE-PROXY",
+      "p": "VALIDATES",
+      "o": "RP-VHOST-JAVAJS"
+    }
+  ]
+}

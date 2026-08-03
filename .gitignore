@@ -100,3 +100,8 @@ vault.yml
 
 __pycache__/
 *.pyc
+.sessions/
+
+# Journaux de session (contiennent des secrets, ne jamais committer)
+session-*.md
+session_*.md

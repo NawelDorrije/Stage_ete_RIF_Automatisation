@@ -1,0 +1,14 @@
+---
+# ansible-core 2.21 : un handler contenant un block de niveau supérieur n'est
+# plus enregistré — deux handlers chaînés (ordre de définition, un échec de
+# nginx -t empêche le reload).
+- name: Tester la syntaxe Nginx
+  become: true
+  ansible.builtin.command: nginx -t
+  changed_when: false
+
+- name: Recharger Nginx
+  become: true
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded

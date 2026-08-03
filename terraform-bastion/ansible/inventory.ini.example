@@ -1,0 +1,9 @@
+# Copier vers inventory.ini (gitignoré) et adapter la clé SSH.
+# Le bastion accepte les clés autorisées via cloud-init / OP-ADD-SSH-KEY.
+[bastion]
+bastion-nawel-test ansible_host=188.40.148.152
+
+[bastion:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+ansible_python_interpreter=/usr/bin/python3

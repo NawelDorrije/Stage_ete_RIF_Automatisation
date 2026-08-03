@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RESPONSE=$(curl --fail --silent --show-error --max-time 20 --retry 3 --retry-delay 5 \
+  "https://www.duckdns.org/update?domains={{ reverse_proxy_sites | map(attribute='name') | join(',') }}&token={{ duckdns_token }}&ip={% if duckdns_ip | default('') | length > 0 %}{{ duckdns_ip }}{% endif %}")
+
+if [ "$RESPONSE" != "OK" ]; then
+  echo "Échec de la mise à jour DuckDNS: $RESPONSE" >&2
+  exit 1
+fi
+
+echo "DuckDNS mis à jour avec succès."

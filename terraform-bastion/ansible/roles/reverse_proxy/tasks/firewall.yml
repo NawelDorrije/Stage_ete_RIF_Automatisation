@@ -1,0 +1,37 @@
+---
+# Collection requise : ansible-galaxy collection install community.general
+- name: Installer UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+  become: true
+
+- name: Autoriser SSH depuis les CIDR administrateurs
+  community.general.ufw:
+    rule: allow
+    port: "{{ reverse_proxy_ssh_port }}"
+    proto: tcp
+    src: "{{ item }}"
+  loop: "{{ reverse_proxy_admin_cidrs }}"
+  become: true
+
+- name: Autoriser HTTP
+  community.general.ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
+  become: true
+
+- name: Autoriser HTTPS
+  community.general.ufw:
+    rule: allow
+    port: '443'
+    proto: tcp
+  become: true
+
+- name: Activer UFW avec une politique entrante restrictive
+  community.general.ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+  become: true

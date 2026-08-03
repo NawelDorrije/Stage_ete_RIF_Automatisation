@@ -1,0 +1,22 @@
+server_tokens off;
+
+# Upgrade WebSocket : déclaré ici (contexte http global), commun à tous les
+# VirtualHost — ne pas dupliquer dans les fichiers de site (conflit nginx).
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# Limitation simple des connexions et requêtes.
+limit_conn_zone $binary_remote_addr zone=perip_conn:10m;
+limit_req_zone $binary_remote_addr zone=perip_req:10m rate=20r/s;
+
+# Taille des buffers d'en-têtes.
+client_header_buffer_size 1k;
+large_client_header_buffers 4 16k;
+
+# Timeouts de base.
+client_body_timeout 30s;
+client_header_timeout 30s;
+keepalive_timeout 65s;
+send_timeout 30s;
