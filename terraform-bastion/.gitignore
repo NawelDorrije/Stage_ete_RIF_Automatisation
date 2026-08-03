@@ -100,3 +100,4 @@ vault.yml
 
 __pycache__/
 *.pyc
+.sessions/

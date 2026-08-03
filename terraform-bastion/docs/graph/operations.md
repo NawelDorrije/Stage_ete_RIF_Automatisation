@@ -1,0 +1,294 @@
+# Feature: Operations Runbook (Procedures & Validation Ladder)
+
+> Home document for: `OP-ADD-VM`, `OP-ATTACH-TO-BASTION`, `OP-RETRIEVE-PORT-ID`,
+> `OP-ADD-SSH-KEY`, `OP-VERIFY-ACCESS`, `OP-REMOVE-VM`, `OP-CHANGE-ADMIN-CIDR`,
+> `OP-ROLLBACK`, `OP-RUN-ANSIBLE`, `DEPLOY-ROLLBACK`,
+> `VAL-FMT`, `VAL-VALIDATE`, `VAL-PLAN`, `VAL-APPLY`, `VAL-SSH-BASTION`,
+> `VAL-SSH-JUMP`, `VAL-ICMP-PRIVATE`, `VAL-SG-AUDIT`, `VAL-HARDENING`
+
+This is the executable layer of the graph. Each procedure lists its graph edges:
+what it **configures**, what it **depends on**, and which **validations** prove it.
+
+---
+
+## Overview
+
+- **Purpose:** Turn every recurring operational question ("add a VM", "add a key",
+  "roll back") into a deterministic, validated procedure.
+- **Context:** The infrastructure mixes Terraform-managed and legacy resources; most
+  procedures are therefore *small Terraform edits + apply + verification*, never
+  manual cloud surgery.
+- **Problem solved:** Removes improvisation; every mutation is reproducible and
+  reversible.
+- **Why it exists:** `PRIN-IAC` applied to day-2 operations.
+
+---
+
+## The Validation Ladder (run bottom-up after any change)
+
+| Order | Node | Command / check | Proves |
+|---|---|---|---|
+| 1 | `VAL-FMT` | `terraform fmt -check -diff` | style/normalization |
+| 2 | `VAL-VALIDATE` | `terraform validate` | module syntax & types |
+| 3 | `VAL-PLAN` | `terraform plan` — human review | intended diff only |
+| 4 | `VAL-APPLY` | `terraform apply` exit 0 | change landed |
+| 5 | `VAL-SG-AUDIT` | `openstack security group rule list <sg>`; `openstack port show <port> -c security_group_ids` | SG state correct |
+| 6 | `VAL-SSH-BASTION` | `ssh ubuntu@<fip> true` | public path + bastion alive |
+| 7 | `VAL-SSH-JUMP` | `ssh -J ubuntu@<fip> ubuntu@<vm-ip> hostname` | full two-hop path per VM |
+| 8 | `VAL-ICMP-PRIVATE` | from bastion: `ping -c3 <vm-ip>`; from a VM: `ping -c3 <bastion-private-ip>` | ICMP rules both directions |
+| 9 | `VAL-HARDENING` | on bastion: `systemctl is-active fail2ban auditd`; `sudo sshd -T \| grep -E 'passwordauthentication\|permitrootlogin\|allowagentforwarding'` → `no no no` | host hardening intact |
+
+**Negative controls (must FAIL):** SSH to a VM private IP from a laptop without `-J`;
+SSH to the bastion from an IP outside `allowed_admin_cidrs`; password authentication
+anywhere. A failure of a negative control = security regression, investigate before
+proceeding.
+
+---
+
+## Operational Procedures
+
+### `OP-ADD-VM` — Add a new VM to the private network
+
+- **Purpose:** introduce a new workload VM into the graph.
+- **Depends on:** `NET-PRIVATE` capacity; `OP-ATTACH-TO-BASTION` (step 3).
+- **Configures:** (indirectly) `SG-ASSOC-PILOT-VMS`.
+- **Steps:**
+  1. Create the VM on `NET-PRIVATE` (Horizon: *Project → Compute → Instances → Launch
+     Instance*, network = `reseau-stagiaires`; or CLI:
+     `openstack server create --network reseau-stagiaires --image Ubuntu-22.04 --flavor <flavor> --key-name <key> <name>`).
+     Do **not** attach a Floating IP (`DEC-007`).
+  2. Record its fixed private IP (`openstack server show <name> -c addresses`).
+  3. Attach it to the bastion model → `OP-ATTACH-TO-BASTION`.
+  4. Add an SSH convenience output (`TFOUT-SSH-*`) and an `SSH-CONFIG` alias.
+  5. `OP-VERIFY-ACCESS`.
+- **Validation:** `VAL-SSH-JUMP` for the new VM; `VAL-SG-AUDIT` on its port.
+- **Risks:** choosing a port/IP that collides with `ISSUE-HARDCODED-IPS` literals;
+  forgetting step 4 leaves operators without a documented command.
+
+### `OP-RETRIEVE-PORT-ID` — Retrieve a Neutron Port ID (Horizon or CLI)
+
+- **Purpose:** obtain the `port_id` value required by `existing_vm_ports`
+  (`SG-ASSOC-PILOT-VMS` input). Mitigates `ISSUE-MANUAL-PORT-ID`.
+- **Depends on:** the VM existing on `NET-PRIVATE`.
+- **Configures:** nothing (read-only lookup feeding `TFVAR-EXISTING-VM-PORTS`).
+- **Steps (CLI — preferred):**
+  1. `openstack port list --server <vm-name> -c ID -c fixed_ips`
+  2. Verify the listed `fixed_ips` contains the VM's expected `192.168.100.x` address
+     (**cross-check — this is what prevents protecting the wrong port**).
+  3. Copy the `ID` (UUID).
+- **Steps (Horizon):**
+  1. *Project → Network → Networks* → click `reseau-stagiaires`.
+  2. Open the **Ports** tab.
+  3. Locate the port whose *Fixed IPs* match the VM's private IP (or whose attached
+     device is the VM).
+  4. Click the port → copy its **ID** from the overview panel.
+- **Validation:** `openstack port show <uuid> -c fixed_ips -c device_owner` matches the VM.
+- **Risks:** VM with multiple ports → one association per port needed; picking by name
+  alone is unreliable (ports are often unnamed) — always match by IP.
+
+### `OP-ATTACH-TO-BASTION` — Attach an existing VM to the bastion security model
+
+- **Purpose:** extend `SG-PRIVATE-VMS` protection to a VM (part of `OP-ADD-VM`;
+  also usable standalone for legacy VMs).
+- **Depends on:** `OP-RETRIEVE-PORT-ID`.
+- **Configures:** `SG-ASSOC-PILOT-VMS` via `TFVAR-EXISTING-VM-PORTS`.
+- **Steps:**
+  1. Edit `terraform.tfvars`: add `logical_name = "<PORT_UUID>"` inside
+     `existing_vm_ports { … }` (follow `terraform.tfvars.example`; respect the phase
+     gating of `DEC-005` for the four known VMs).
+  2. `terraform plan` — expect exactly **one** new
+     `openstack_networking_port_secgroup_associate_v2.tested_vms["logical_name"]`.
+     Anything more = stop.
+  3. `terraform apply`.
+  4. `OP-VERIFY-ACCESS`.
+- **Validation:** `VAL-SG-AUDIT` (port now lists `SG-PRIVATE-VMS` **plus** its legacy
+  SGs — `DEC-004`), then `VAL-SSH-JUMP`.
+- **Risks:** logical key rename later = association recreate (harmless but noisy);
+  empty map destroys all associations.
+
+### `OP-ADD-SSH-KEY` — Add an SSH public key to the bastion
+
+- **Purpose:** grant a new admin access to the bastion (and thus, via their own VM
+  keys, the fleet).
+- **Depends on:** `SSH-DIRECT-BASTION` working for an existing admin.
+- **Configures:** `VM-BASTION` authorized_keys (out-of-band, see warning).
+- **⚠ Critical warning (`ISSUE-USERDATA-DRIFT`):** editing `admin_ssh_keys` in tfvars
+  and applying does **nothing** — `user_data` changes are ignored after first boot
+  (`DEC-003`). Use one of the two working paths:
+- **Path A — Ansible (preferred, `PRIN-IAC`):**
+  1. Extend `ansible/bastion-hardening.yml` with an `ansible.builtin.authorized_key`
+     task for the `ubuntu` user (or a dedicated keys playbook).
+  2. `OP-RUN-ANSIBLE`.
+- **Path B — Manual (break-glass):**
+  1. `ssh ubuntu@<fip>`
+  2. Append the public key to `/home/ubuntu/.ssh/authorized_keys` (mode `600`,
+     dir `700`).
+  3. Also add the key to `admin_ssh_keys` in tfvars **for documentation/future
+     rebuilds** — knowing it won't apply now.
+- **Also required:** if the admin's source IP is new → `OP-CHANGE-ADMIN-CIDR`.
+- **Validation:** new admin runs `VAL-SSH-BASTION` from their machine.
+- **Risks:** manual path drifts from code (mitigate by recording the key in tfvars
+  anyway); removing a key requires the same out-of-band edit.
+
+### `OP-VERIFY-ACCESS` — Verify end-to-end access
+
+- **Purpose:** the standard proof that a VM is correctly onboarded.
+- **Depends on:** `OP-ATTACH-TO-BASTION` completed.
+- **Uses:** `SSH-PROXYJUMP`.
+- **Steps (per VM):**
+  1. `VAL-SG-AUDIT` — `openstack port show <port-id> -c security_group_ids` includes
+     `SG-PRIVATE-VMS`.
+  2. `VAL-SSH-JUMP` — `ssh -J ubuntu@<fip> ubuntu@<vm-ip> 'hostname && whoami'`.
+  3. `VAL-ICMP-PRIVATE` — from bastion `ping -c3 <vm-ip>`; from VM
+     `ping -c3 <bastion-private-ip>`.
+  4. Negative control — laptop direct `ssh ubuntu@<vm-ip>` times out.
+- **Validation:** all four checks pass.
+- **Risks:** skipping the negative control leaves silent legacy exposure undetected
+  (pre-`FW-ENFORCE-SG` legacy SGs may legitimately allow other paths — record findings).
+
+### `OP-REMOVE-VM` — Remove a VM from bastion control
+
+- **Purpose:** detach a VM from the bastion security model (decommission or exclusion).
+- **Configures:** `SG-ASSOC-PILOT-VMS`.
+- **Steps:**
+  1. Remove (or comment) the VM's entry from `existing_vm_ports` in `terraform.tfvars`.
+  2. `terraform plan` — expect exactly one **destroy** of the association
+     `…tested_vms["<logical_name>"]` and nothing else.
+  3. `terraform apply` (only the added SG is detached; legacy SGs and the VM itself
+     are untouched — `DEC-004` semantics).
+  4. Remove the matching `TFOUT-SSH-*` output and `SSH-CONFIG` alias if permanent.
+- **Validation:** `VAL-SG-AUDIT` (port no longer lists `SG-PRIVATE-VMS`);
+  `VAL-SSH-JUMP` now **fails** for that VM (expected).
+- **Risks:** if the VM's only working SSH path was the bastion, it becomes unreachable
+  by design — confirm intent first.
+
+### `OP-CHANGE-ADMIN-CIDR` — Change which admin IPs may reach the bastion
+
+- **Purpose:** keep `SG-RULE-BASTION-SSH` aligned with where admins actually are.
+- **Configures:** `SG-RULE-BASTION-SSH` via `TFVAR-ALLOWED-ADMIN-CIDR`.
+- **Steps:**
+  1. Edit `allowed_admin_cidrs` in tfvars (always `/32` per admin IP).
+  2. **Keep your own current IP in the list** (lockout risk) — add before removing.
+  3. `terraform plan` → in-place rule add/remove; `terraform apply` (instant, no
+     instance impact).
+- **Validation:** `VAL-SSH-BASTION` from each new CIDR; negative control from a
+  removed CIDR.
+- **Risks:** lockout if your IP changes between plan and apply (NAT/VPN churn);
+  recovery requires cloud-side access (Horizon console) to fix tfvars→apply.
+
+### `OP-RUN-ANSIBLE` — Re-apply bastion hardening with Ansible
+
+- **Purpose:** steady-state configuration of `VM-BASTION` (`DEC-011`); the only
+  supported post-boot change path (`DEC-003`).
+- **Depends on:** `SSH-DIRECT-BASTION`; a local `ansible/inventory.ini` defining a
+  `bastion` host/group (file is gitignored; `inventory.ini.example` is an empty
+  template — `FW-INVENTORY-AUTOMATION`).
+- **Uses:** `INFRA-ANSIBLE`.
+- **Steps:**
+  1. Create `ansible/inventory.ini`:
+     `bastion ansible_host=<fip> ansible_user=ubuntu`
+  2. `ansible-playbook -i ansible/inventory.ini ansible/bastion-hardening.yml`
+  3. Re-run must converge (`changed=0` when no drift).
+- **Validation:** `VAL-HARDENING`.
+- **Risks:** playbook ↔ cloud-init drift if only one is edited (mirror rule:
+  any hardening change goes in **both** files).
+
+### `OP-ROLLBACK` — Roll back a Terraform change (`DEPLOY-ROLLBACK`)
+
+- **Purpose:** return the graph to its last good state.
+- **Uses:** `DEPLOY-ROLLBACK` (supersedes a bad `DEPLOY-APPLY`).
+- **Steps:**
+  1. **Code-level (default):** `git revert <bad-commit>` (or checkout last-good),
+     `terraform plan` (expect the inverse diff), `terraform apply`.
+  2. **Association-only accidents:** remove the offending `existing_vm_ports` entry,
+     apply (see `OP-REMOVE-VM`).
+  3. **State-level (exceptional):** in the Terraform Cloud workspace, roll back to a
+     previous state version, then `terraform plan` to converge reality↔state.
+- **Destroying the bastion (rare, sanctioned path):** `prevent_destroy` (`DEC-002`)
+  blocks it. Procedure: remove the `lifecycle { prevent_destroy = true }` blocks from
+  `bastion.tf` → apply (destroys port+instance; **the FIP survives**, `DEC-001`) →
+  restore blocks → apply to recreate → `OP-RUN-ANSIBLE` → full validation ladder.
+- **Validation:** post-rollback full ladder (all `VAL-*`).
+- **Risks:** state rollback while reality drifted = confusing plans; prefer
+  code-level rollback always.
+
+---
+
+## Graph Relationships (local view)
+
+```
+OP-ADD-VM           DEPENDS_ON  OP-RETRIEVE-PORT-ID
+OP-ATTACH-TO-BASTION PART_OF    OP-ADD-VM
+OP-ATTACH-TO-BASTION CONFIGURES SG-ASSOC-PILOT-VMS
+OP-RETRIEVE-PORT-ID RELATED_TO  ISSUE-MANUAL-PORT-ID
+OP-ADD-SSH-KEY      RELATED_TO  ISSUE-USERDATA-DRIFT
+OP-ADD-SSH-KEY      USES        OP-RUN-ANSIBLE              (preferred path)
+OP-VERIFY-ACCESS    USES        SSH-PROXYJUMP
+OP-VERIFY-ACCESS    USES        VAL-SG-AUDIT · VAL-SSH-JUMP · VAL-ICMP-PRIVATE
+OP-REMOVE-VM        CONFIGURES  SG-ASSOC-PILOT-VMS
+OP-CHANGE-ADMIN-CIDR CONFIGURES SG-RULE-BASTION-SSH
+OP-ROLLBACK         USES        DEPLOY-ROLLBACK
+DEPLOY-ROLLBACK     SUPERSEDES  DEPLOY-APPLY
+OP-RUN-ANSIBLE      USES        INFRA-ANSIBLE
+VAL-VALIDATE/PLAN   VALIDATES   TFMOD-ROOT
+VAL-SSH-BASTION     VALIDATES   VM-BASTION · SG-BASTION
+VAL-SSH-JUMP        VALIDATES   SG-PRIVATE-VMS · SG-ASSOC-PILOT-VMS
+VAL-ICMP-PRIVATE    VALIDATES   SG-RULE-BASTION-ICMP · SG-RULE-VM-ICMP-FROM-BASTION
+VAL-SG-AUDIT        VALIDATES   SG-* · SG-ASSOC-PILOT-VMS
+VAL-HARDENING       VALIDATES   INFRA-CLOUDINIT · INFRA-ANSIBLE
+```
+
+---
+
+## Decisions (canonical text in [decisions.md](decisions.md))
+
+`DEC-002` (rollback must be deliberate), `DEC-003` (Ansible is the change path),
+`DEC-004` (remove ≠ unprotect legacy), `DEC-005` (phase gating).
+
+---
+
+## Terraform Knowledge
+
+Procedures mutate exactly two inputs: `existing_vm_ports` (attach/remove) and
+`allowed_admin_cidrs` (admin IPs). Both are in-place operations with narrow,
+predictable plans — if `plan` shows anything else, stop.
+
+---
+
+## Infrastructure Workflow
+
+Standard loop: branch → edit tfvars/`.tf` → validation ladder steps 1–4 →
+feature-specific `OP-*` → validation ladder steps 5–9 → commit.
+
+---
+
+## Validation
+
+The ladder at the top of this document is the canonical validation definition;
+feature documents reference it by node ID (`VAL-*`).
+
+---
+
+## Future Roadmap
+
+- `FW-CICD` — run ladder steps 1–4 in CI; steps 5–9 as smoke tests.
+- `FW-INVENTORY-AUTOMATION` — remove the manual inventory step of `OP-RUN-ANSIBLE`.
+- `FW-PORT-AUTODISCOVERY` — collapse `OP-RETRIEVE-PORT-ID` into a data source.
+- `FW-VAULT` — replace `OP-ADD-SSH-KEY` with short-lived certificates.
+
+---
+
+## AI Retrieval Optimization
+
+- **Keywords:** runbook, add VM, attach VM to bastion, retrieve port ID, Horizon port ID, openstack port list --server, add SSH key, authorized_keys, verify access, remove VM, rollback, git revert apply, change admin CIDR, allowed IP, ansible-playbook inventory, validation ladder, negative control
+- **Tags:** #operations #runbook #procedures #validation #day2
+- **Related Nodes:** all `SG-*`, all `VM-*`, `TFVAR-EXISTING-VM-PORTS`, `TFVAR-ALLOWED-ADMIN-CIDR`, `INFRA-ANSIBLE`
+- **Parent Nodes:** `PRIN-IAC`, `DEC-002..005`
+- **Child Nodes:** all `OP-*`, all `VAL-*`, `DEPLOY-ROLLBACK`
+- **Cross References:** every feature document (this is the executable hub)
+- **Aliases:** procédures opérationnelles (fr), day-2 operations, SRE runbook, validation checklist
+- **Infrastructure Layer:** touched via OpenStack CLI checks
+- **Networking Layer:** port lookups, ICMP checks
+- **Security Layer:** SG audits, key management, negative controls
+- **Terraform Layer:** plan/apply loops, rollback
+- **Operational Layer:** everything in this document
