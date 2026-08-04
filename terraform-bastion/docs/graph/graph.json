@@ -1031,6 +1031,16 @@
       "home": "terraform-platform.md"
     },
     {
+      "id": "ISSUE-AUTH-403-502",
+      "name": "Public auth broken (403 CORS / 502 upstream)",
+      "type": "known_issue",
+      "layers": [
+        "operational"
+      ],
+      "home": "operations.md",
+      "summary": "2026-08-04: rif-javajs 403 (api-gateway CORS allowlist) + missing mongodb; rif-fullstack 502 (VM nginx sent WebSocket upgrade headers on every /api request). Fixed on VMs. App-level login gaps remain: javajs /auth/authenticate 401 with valid creds; fullstack /api/auth/login 401 without Turnstile token."
+    },
+    {
       "id": "VAL-FMT",
       "name": "terraform fmt -check",
       "type": "validation",
@@ -1312,7 +1322,19 @@
       ],
       "home": "reverse-proxy.md",
       "status": "implemented-https",
-      "summary": "upstream javajs_application = 192.168.100.149:80 (DakarCitoyen frontend); /reverse-proxy-health endpoint; HTTPS 443 + 80->301 redirect."
+      "summary": "upstream javajs_application = 192.168.100.149:80 (DakarCitoyen frontend); /reverse-proxy-health endpoint; HTTPS 443 + 80->301 redirect; CORS allowlist extended for the public domain (2026-08-04)."
+    },
+    {
+      "id": "RP-VHOST-FULLSTACK",
+      "name": "Vhost rif-fullstack.duckdns.org",
+      "type": "reverse_proxy",
+      "layers": [
+        "infrastructure",
+        "networking"
+      ],
+      "home": "reverse-proxy.md",
+      "status": "implemented-https",
+      "summary": "upstream fullstack_application = 192.168.100.87:80 (MatchJob nginx -> frontend + backend:5000); /reverse-proxy-health endpoint; HTTPS 443 + 80->301 redirect (2026-08-04)."
     },
     {
       "id": "OP-DEPLOY-REVERSE-PROXY",
@@ -1322,7 +1344,7 @@
         "operational"
       ],
       "home": "operations.md",
-      "summary": "ansible/playbooks/bastion-reverse-proxy.yml; pass 1 HTTP done, pass 2 HTTPS DNS-gated."
+      "summary": "ansible/playbooks/bastion-reverse-proxy.yml; multi-vhost live (rif-javajs + rif-fullstack), HTTP + HTTPS."
     },
     {
       "id": "OP-DISABLE-REVERSE-PROXY",
@@ -1342,7 +1364,7 @@
         "operational"
       ],
       "home": "operations.md",
-      "summary": "Host-header curl checks: /reverse-proxy-health, SPA title, /auth 401, nginx -t."
+      "summary": "Host-header curl checks per vhost: /reverse-proxy-health, SPA title, /auth or /api probe, nginx -t."
     }
   ],
   "edges": [
@@ -2256,6 +2278,48 @@
       "s": "VAL-REVERSE-PROXY",
       "p": "VALIDATES",
       "o": "RP-VHOST-JAVAJS"
+    },
+    {
+      "id": "E150",
+      "note": "sites-available/rif-fullstack",
+      "s": "RP-VHOST-FULLSTACK",
+      "p": "PART_OF",
+      "o": "RP-NGINX"
+    },
+    {
+      "id": "E151",
+      "note": "upstream 192.168.100.87:80",
+      "s": "RP-VHOST-FULLSTACK",
+      "p": "CONNECTS_TO",
+      "o": "VM-FULL-STACK-JS"
+    },
+    {
+      "id": "E152",
+      "note": "web only; VM keeps no FIP requirement",
+      "s": "RP-VHOST-FULLSTACK",
+      "p": "EXPOSES",
+      "o": "VM-FULL-STACK-JS"
+    },
+    {
+      "id": "E153",
+      "note": "Host-header content checks",
+      "s": "VAL-REVERSE-PROXY",
+      "p": "VALIDATES",
+      "o": "RP-VHOST-FULLSTACK"
+    },
+    {
+      "id": "E154",
+      "note": "CORS / upgrade-header / mongodb incidents (2026-08-04)",
+      "s": "ISSUE-AUTH-403-502",
+      "p": "RELATED_TO",
+      "o": "RP-VHOST-JAVAJS"
+    },
+    {
+      "id": "E155",
+      "note": "CORS / upgrade-header / mongodb incidents (2026-08-04)",
+      "s": "ISSUE-AUTH-403-502",
+      "p": "RELATED_TO",
+      "o": "RP-VHOST-FULLSTACK"
     }
   ]
 }

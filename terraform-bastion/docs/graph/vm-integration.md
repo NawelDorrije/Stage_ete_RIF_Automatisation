@@ -57,9 +57,12 @@ until `FW-ENFORCE-SG` — the pilot phase is deliberately additive, not yet excl
 ### `VM-FULL-STACK-JS` — Full-Stack-JS (`192.168.100.87`)
 
 - **Type:** VM · **Layer:** Infrastructure
-- **Description:** Pre-existing training VM (full-stack JavaScript workload). Its
-  keypair name lives on in `INFRA-KEYPAIR` (`Full_Stack_JS_key`) — evidence it was the
-  project's first VM. Pilot phase 1.
+- **Description:** Pre-existing training VM (full-stack JavaScript workload). Serves
+  the **MatchJob** app: compose at `/opt/fullstack-js/deploy/docker-compose.yml` runs
+  nginx (host port 80 → frontend + `backend:5000`; `./nginx/default.conf` is a `:ro`
+  bind-mount — after edits, restart the nginx container). Its keypair name lives on in
+  `INFRA-KEYPAIR` (`Full_Stack_JS_key`) — evidence it was the project's first VM.
+  Pilot phase 1.
 - **Purpose:** Workload host; pilot member validating the bastion model.
 - **Dependencies:** `NET-PRIVATE` (fixed IP .87).
 - **Related Components:** `SG-ASSOC-PILOT-VMS` (configures its port),
@@ -105,7 +108,11 @@ until `FW-ENFORCE-SG` — the pilot phase is deliberately additive, not yet excl
 ### `VM-JAVA-JS` — Java-JS (`192.168.100.149`)
 
 - **Type:** VM · **Layer:** Infrastructure
-- **Description:** Pre-existing Java/JavaScript training VM. Phase 2 (`DEC-005`).
+- **Description:** Pre-existing Java/JavaScript training VM. Serves the **Shadcn Admin
+  (DakarCitoyen)** app: compose at `/home/ubuntu/RIF-Project/docker-compose.yml` runs
+  host nginx (:80 → frontend container 3030 → api-gateway:8090 → user-service:8081),
+  Spring Cloud + MongoDB (`mongodb` container restored 2026-08-04; api-gateway CORS
+  allowlist updated for the public domain). Phase 2 (`DEC-005`).
 - **Purpose:** Workload host.
 - **Dependencies:** `NET-PRIVATE` (fixed IP .149).
 - **Related Components:** `SG-PRIVATE-VMS`, `TFOUT-SSH-JAVA-JS`.
@@ -244,7 +251,7 @@ Canonical runbook (→ See: [operations.md](operations.md)):
 
 ## AI Retrieval Optimization
 
-- **Keywords:** existing VMs, legacy VMs, pilot VMs, port_secgroup_associate, enforce false, Neutron port ID, Horizon port, rollout phases, LMS-OpenedX, Odoo, Full-Stack-JS, Java-JS, MERN, 192.168.100.55, 192.168.100.87, 192.168.100.91, 192.168.100.149
+- **Keywords:** existing VMs, legacy VMs, pilot VMs, port_secgroup_associate, enforce false, Neutron port ID, Horizon port, rollout phases, LMS-OpenedX, Odoo, Full-Stack-JS, Java-JS, MERN, 192.168.100.55, 192.168.100.87, 192.168.100.91, 192.168.100.149, MatchJob, DakarCitoyen, Shadcn Admin, sovereignscale
 - **Tags:** #migration #vms #pilot #rollout #security-groups #onboarding
 - **Related Nodes:** `SG-PRIVATE-VMS`, `SSH-PROXYJUMP`, `NET-PRIVATE`, `TFVAR-EXISTING-VM-PORTS`, `TFOUT-SSH-*`
 - **Parent Nodes:** `DEC-005`, `PRIN-NON-DESTRUCTIVE-TESTING`

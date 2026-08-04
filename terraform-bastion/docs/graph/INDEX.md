@@ -165,6 +165,7 @@ Machine-readable export: [`graph.json`](graph.json).
 | `ISSUE-ORPHAN-FIP-SUBNET-VAR` | `floating_ip_subnet_id` is required but unused by active code (only referenced in commented-out resource) | [terraform-platform.md](terraform-platform.md) |
 | `ISSUE-TFVARS-EXAMPLE-INCOMPLETE` | `terraform.tfvars.example` omits `os_username`, `os_password`, `os_project_name`, `bastion_floating_ip` | [terraform-platform.md](terraform-platform.md) |
 | `ISSUE-LOCKFILE-GITIGNORE` | `.gitignore` line for `.terraform.lock.hcl` has a leading space → pattern ineffective, file is tracked (currently intentional but fragile) | [terraform-platform.md](terraform-platform.md) |
+| `ISSUE-AUTH-403-502` | Public auth broken 2026-08-04: rif-javajs 403 (CORS allowlist) + missing mongodb; rif-fullstack 502 (VM nginx upgrade headers). Fixed on VMs; app-level login gaps remain | [operations.md](operations.md) |
 
 ### 1.12 Validations (details in [operations.md](operations.md) + feature docs)
 
@@ -179,7 +180,7 @@ Machine-readable export: [`graph.json`](graph.json).
 | `VAL-ICMP-PRIVATE` | ping bastion ↔ VMs on `192.168.100.0/24` | `SG-RULE-BASTION-ICMP`, `SG-RULE-VM-ICMP-FROM-BASTION` |
 | `VAL-SG-AUDIT` | OpenStack CLI audit of SG rules/ports | `SG-BASTION`, `SG-PRIVATE-VMS`, `SG-ASSOC-PILOT-VMS` |
 | `VAL-HARDENING` | fail2ban/auditd/sshd config checks | `INFRA-CLOUDINIT`, `INFRA-ANSIBLE` |
-| `VAL-REVERSE-PROXY` | health endpoint + vhost content + nginx -t | `RP-NGINX`, `RP-VHOST-JAVAJS`, `SG-RULE-BASTION-HTTP(S)` |
+| `VAL-REVERSE-PROXY` | health endpoint + vhost content + nginx -t | `RP-NGINX`, `RP-VHOST-JAVAJS`, `RP-VHOST-FULLSTACK`, `SG-RULE-BASTION-HTTP(S)` |
 
 ### 1.13 SSH Workflows (details in [ssh-workflows.md](ssh-workflows.md))
 
@@ -194,15 +195,16 @@ Machine-readable export: [`graph.json`](graph.json).
 
 | ID | Name | Type | Layer | Home Document |
 |---|---|---|---|---|
-| `RP-NGINX` | Nginx reverse proxy on the bastion (implemented HTTP) | Reverse Proxy | Infrastructure + Security | [reverse-proxy.md](reverse-proxy.md) |
+| `RP-NGINX` | Nginx reverse proxy on the bastion (implemented HTTP + HTTPS) | Reverse Proxy | Infrastructure + Security | [reverse-proxy.md](reverse-proxy.md) |
 | `RP-VHOST-JAVAJS` | Vhost `rif-javajs.duckdns.org` → `192.168.100.149:80` | Reverse Proxy | Infrastructure + Networking | [reverse-proxy.md](reverse-proxy.md) |
+| `RP-VHOST-FULLSTACK` | Vhost `rif-fullstack.duckdns.org` → `192.168.100.87:80` | Reverse Proxy | Infrastructure + Networking | [reverse-proxy.md](reverse-proxy.md) |
 
 ### 1.14 Future Work (details in [future-roadmap.md](future-roadmap.md))
 
 | ID | Future Node | Depends On |
 |---|---|---|
-| `FW-REVERSE-PROXY` | Central HTTP(S) entry for hosted apps | `VM-BASTION` |
-| `FW-HTTPS` | TLS certificates (Let's Encrypt) — pass 2 ready, DNS-gated | `RP-NGINX`, `FW-DOMAIN-DNS` |
+| `FW-REVERSE-PROXY` | Central HTTP(S) entry for hosted apps | implemented 2026-08-04 (multi-vhost) |
+| `FW-HTTPS` | TLS certificates (Let's Encrypt) — implemented on both vhosts 2026-08-04 | `RP-NGINX`, `FW-DOMAIN-DNS` |
 | `FW-DOMAIN-DNS` | Domain names for services | `FW-DNS-FIX` |
 | `FW-DNS-FIX` | Complete DNS work of branch `fix/dns-terraform` | `NET-PRIVATE` |
 | `FW-PROMETHEUS` | Metrics collection | all `VM-*` |
