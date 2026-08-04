@@ -199,11 +199,14 @@ proceeding.
 ### `OP-DEPLOY-REVERSE-PROXY` — Deploy / update the Nginx reverse proxy (`RP-NGINX`)
 
 - **Purpose:** publish (or update) a web vhost on the bastion toward a private VM —
-  executed 2026-08-03 for `RP-VHOST-JAVAJS` (pass 1 HTTP).
+  executed 2026-08-03 for `RP-VHOST-JAVAJS` (pass 1 HTTP) and 2026-08-04 for
+  `RP-VHOST-FULLSTACK` (multi-vhost live).
 - **Depends on:** `SG-RULE-BASTION-HTTP`/`SG-RULE-BASTION-HTTPS` applied;
   `SSH-DIRECT-BASTION`; upstream reachable from the bastion
   (`curl -I http://<vm-ip>:<port>`).
 - **Configures:** `RP-NGINX` + its vhosts (Ansible, `DEC-011` path — no Terraform).
+  One `reverse_proxy_*` variable set per site (domain + upstream); re-running the
+  playbook adds the vhost idempotently without disturbing the others.
 - **Steps:**
   1. Set variables in `ansible/group_vars/bastion.yml`
      (`reverse_proxy_domain`, `reverse_proxy_upstream_host/port`,
@@ -240,22 +243,23 @@ proceeding.
 
 ### `VAL-REVERSE-PROXY` — Reverse proxy validation
 
-- **Purpose:** prove `RP-NGINX` serves correct backends per vhost.
+- **Purpose:** prove `RP-NGINX` serves correct backends per vhost (multi-vhost since 2026-08-04).
 - **Steps (from any machine):**
-  1. `curl -s -H 'Host: rif-javajs.duckdns.org' http://188.40.148.152/reverse-proxy-health`
-     → `bastion-reverse-proxy-ok`.
-  2. `curl -sL -H 'Host: rif-javajs.duckdns.org' http://188.40.148.152/` → HTML of the
-     DakarCitoyen SPA (`<title>Shadcn Admin</title>`); over the public domain it
-     first answers `301 → https`.
+  1. For each vhost: `curl -s -H 'Host: <vhost>' http://188.40.148.152/reverse-proxy-health`
+     → `bastion-reverse-proxy-ok` (check `rif-javajs.duckdns.org` **and** `rif-fullstack.duckdns.org`).
+  2. `curl -sL -H 'Host: <vhost>' http://188.40.148.152/` → HTML of the SPA
+     (`rif-javajs` → `<title>Shadcn Admin</title>`; `rif-fullstack` → `<title>MatchJob …</title>`);
+     over the public domain it first answers `301 → https`.
   3. `curl -s -o /dev/null -w '%{http_code}' https://rif-javajs.duckdns.org/auth/authenticate`
-     → `401`/`403` (backend path proxied, not the SPA fallback; 403 is Spring Security
-     rejecting the unauthenticated call).
+     → `401`/`403` (backend path proxied, not the SPA fallback).
+     `curl -s -o /dev/null -w '%{http_code}' https://rif-fullstack.duckdns.org/api/companies`
+     → `200` (backend proxied, not the SPA fallback).
   4. On the bastion: `sudo nginx -t` → syntax ok.
 - **Pass 2 additions:** `curl -I https://rif-javajs.duckdns.org` → 200, valid LE
   chain (`subject=CN=rif-javajs.duckdns.org`, `Verify return code: 0`);
   `sudo certbot renew --dry-run`; `systemctl is-active certbot.timer`;
   `sudo crontab -l` shows the DuckDNS cron (`*/5 * * * * /opt/duckdns/update.sh`).
-- **Validates:** `RP-NGINX`, `RP-VHOST-JAVAJS`, `SG-RULE-BASTION-HTTP(S)`.
+- **Validates:** `RP-NGINX`, `RP-VHOST-JAVAJS`, `RP-VHOST-FULLSTACK`, `SG-RULE-BASTION-HTTP(S)`.
 
 ### `OP-ROLLBACK` — Roll back a Terraform change (`DEPLOY-ROLLBACK`)
 
@@ -275,6 +279,46 @@ proceeding.
 - **Validation:** post-rollback full ladder (all `VAL-*`).
 - **Risks:** state rollback while reality drifted = confusing plans; prefer
   code-level rollback always.
+
+### `ISSUE-AUTH-403-502` — Public sign-in/sign-up broken on both sites (2026-08-04)
+
+- **Symptom:** `https://rif-javajs.duckdns.org` → `403 Invalid CORS request` on
+  register/login; `https://rif-fullstack.duckdns.org` → `502 Bad Gateway` on every
+  `/api/*` call. Repo unchanged; both apps healthy locally on their VMs.
+- **Root causes (two independent VM-side defects):**
+  1. **rif-javajs 403 — CORS allowlist.** The api-gateway container env
+     `APP_CORS_ALLOWED_ORIGINS` (`docker-compose.yml` on `VM-JAVA-JS`, line ~156)
+     only allowed `http://localhost:3030` + `:5173`, so the gateway's CORS filter
+     rejected the public origin. Fix: append
+     `,https://rif-javajs.duckdns.org,http://rif-javajs.duckdns.org`, then
+     `docker compose up -d --no-deps api-gateway` (backup `.bak.*` kept). Preflight
+     now returns `access-control-allow-origin: https://rif-javajs.duckdns.org`.
+  2. **rif-javajs backend crash-loop — missing `mongodb`.** The `mongodb` container
+     was absent; user-service had RestartCount ≈ 10 k. After pulling `mongo:7`
+     (Docker Hub egress on this VM is intermittently broken — retry), run
+     `docker compose up -d mongodb` then `docker compose up -d user-service` → healthy.
+  3. **rif-fullstack 502 — WebSocket upgrade headers on every request.** The VM's
+     nginx `/api/` block set `proxy_set_header Upgrade $forwarded_proto;` and
+     `proxy_set_header Connection "upgrade";` on all requests; the backend closes the
+     connection → `upstream prematurely closed connection`. Fix: delete both lines in
+     `/opt/fullstack-js/deploy/nginx/default.conf` (backup `.bak.*` kept) and
+     **restart the nginx container** (`docker-compose restart sovereignscale-nginx`) —
+     it is a `:ro` bind-mount, so a bare `nginx -s reload` did not pick up the edit.
+- **Validation:** both `reverse-proxy-health` endpoints → `bastion-reverse-proxy-ok`;
+  `curl -s -o /dev/null -w '%{http_code}' https://rif-javajs.duckdns.org/auth/register`
+  → 200 (was 403); `curl -s -o /dev/null -w '%{http_code}'
+  https://rif-fullstack.duckdns.org/api/companies` → 200 (was 502).
+- **Known app-level follow-ups (transport is now correct):**
+  - rif-javajs login: `/auth/authenticate` returns 401 even for a just-registered
+    user with correct credentials (register → 200 + JWT). Likely bcrypt compare /
+    Mongo DB selection: the backend writes to the default `test` db even though the
+    URI is `mongodb://mongodb:27017/user` → lookup fails. Needs a source fix in
+    user-microservice (image-only on the VM; no source).
+  - rif-fullstack login: HTTPS `/api/auth/login` returns
+    `401 {"message":"Validation Cloudflare échouée…"}` when no Turnstile token is
+    sent — expected without a browser; fine from the real UI.
+- **Related:** `RP-VHOST-JAVAJS`, `RP-VHOST-FULLSTACK`, `VM-JAVA-JS`, `VM-FULL-STACK-JS`,
+  `VAL-REVERSE-PROXY`.
 
 ---
 
