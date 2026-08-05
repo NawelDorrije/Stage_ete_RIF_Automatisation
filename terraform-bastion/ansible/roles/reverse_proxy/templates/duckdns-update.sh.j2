@@ -1,12 +1,36 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
-RESPONSE=$(curl --fail --silent --show-error --max-time 20 --retry 3 --retry-delay 5 \
-  "https://www.duckdns.org/update?domains={{ reverse_proxy_sites | map(attribute='name') | join(',') }}&token={{ duckdns_token }}&ip={% if duckdns_ip | default('') | length > 0 %}{{ duckdns_ip }}{% endif %}")
+# Mise à jour par domaine : un domaine non possédé (ex. apps.rif-openedx, géré
+# hors de ce token) ou temporairement en erreur ne doit pas faire échouer le
+# cron des autres domaines. On échoue uniquement si AUCUN domaine n'est à jour.
+{% if reverse_proxy_sites %}
+DOMAINS=({% for site in reverse_proxy_sites %}{{ site.name }} {% endfor %})
+{% else %}
+DOMAINS=()
+{% endif %}
+TOKEN={{ duckdns_token }}
+IP={% if duckdns_ip | default('') | length > 0 %}{{ duckdns_ip }}{% endif %}
 
-if [ "$RESPONSE" != "OK" ]; then
-  echo "Échec de la mise à jour DuckDNS: $RESPONSE" >&2
+SUCCESS=0
+FAILURES=""
+for D in "${DOMAINS[@]}"; do
+  RESPONSE=$(curl --fail --silent --show-error --max-time 20 --retry 3 --retry-delay 5 \
+    "https://www.duckdns.org/update?domains=${D}&token=${TOKEN}&ip=${IP}")
+  if [ "$RESPONSE" = "OK" ]; then
+    SUCCESS=$((SUCCESS + 1))
+  else
+    FAILURES="${FAILURES}${FAILURES:+ }${D}"
+  fi
+done
+
+if [ -n "$FAILURES" ]; then
+  echo "Avertissement : domaines non mis à jour : ${FAILURES}" >&2
+fi
+
+if [ "$SUCCESS" -eq 0 ]; then
+  echo "Aucun domaine DuckDNS n'a pu être mis à jour." >&2
   exit 1
 fi
 
-echo "DuckDNS mis à jour avec succès."
+echo "DuckDNS mis à jour avec succès (${SUCCESS} domaine(s) OK en direct)."

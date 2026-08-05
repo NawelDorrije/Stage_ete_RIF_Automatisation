@@ -36,7 +36,9 @@
   loop: "{{ reverse_proxy_sites }}"
   become: true
   vars:
-    reverse_proxy_site_name: "{{ item.name }}"
+    # Nom d'upstream nginx sanitized (nom de site DuckDNS, ex. apps.rif-openedx
+    # -> apps_rif_openedx) : les points ne sont pas sûrs dans un bloc upstream.
+    reverse_proxy_site_name: "{{ item.name | regex_replace('[^A-Za-z0-9_]', '_') }}"
     reverse_proxy_domain: "{{ item.domain }}"
     reverse_proxy_upstream_host: "{{ item.upstream_host }}"
     reverse_proxy_upstream_port: "{{ item.upstream_port }}"

@@ -14,6 +14,14 @@ reverse_proxy_sites:
     domain: rif-openedx.duckdns.org
     upstream_host: 192.168.100.55
     upstream_port: 80
+  # MFE (authn/learning) — hôte dédié requis par le reverse proxy interne de
+  # Tutor (Caddy route par Host, pas par chemin). Le sous-domaine DuckDNS
+  # apps.rif-openedx (déjà en place, pointe sur 188.40.148.152) est géré hors de
+  # ce token : le cron DuckDNS tolère son échec (script par domaine).
+  - name: apps.rif-openedx
+    domain: apps.rif-openedx.duckdns.org
+    upstream_host: 192.168.100.55
+    upstream_port: 80
   # rif-openedx-studio (CMS/Studio) re-added when DuckDNS subdomain is created:
   # - name: rif-openedx-studio
   #   domain: rif-openedx-studio.duckdns.org
