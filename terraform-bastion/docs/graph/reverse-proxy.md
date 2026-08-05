@@ -1,10 +1,12 @@
 # Feature: Reverse Proxy (Nginx on the Bastion)
 
-> Home document for: `RP-NGINX`, `RP-VHOST-JAVAJS`, `RP-VHOST-FULLSTACK`
+> Home document for: `RP-NGINX`, `RP-VHOST-JAVAJS`, `RP-VHOST-FULLSTACK`,
+> `RP-VHOST-OPENEDX`
 >
 > Graduated from [future-roadmap.md](future-roadmap.md) on 2026-08-03 (pass 1 HTTP
 > implemented for the Java-JS vhost; HTTPS pass 2 tracked by `FW-HTTPS`).
 > Multi-vhost (second site `rif-fullstack`) live 2026-08-04.
+> Third vhost `rif-openedx` (Open edX LMS via Tutor/Caddy) live 2026-08-05.
 
 ---
 
@@ -25,6 +27,11 @@
   - `rif-fullstack.duckdns.org` → `http://192.168.100.87:80` — **MatchJob** frontend;
     the VM's own nginx proxies `/api/*` to the backend container (port 5000), so a
     single upstream suffices.
+  - `rif-openedx.duckdns.org` → `http://192.168.100.55:80` — **Open edX LMS**
+    (Tutor 21 / Caddy) live 2026-08-05. TLS is terminated on the bastion
+    (`ENABLE_HTTPS=false` on the VM); Tutor routes internally by Host header, so the
+    same upstream also serves the CMS/Studio authoring UI at a second domain
+    (`rif-openedx-studio`, pending DuckDNS → `RP-VHOST-OPENEDX`).
 
 ### Traffic flow
 
@@ -33,8 +40,10 @@ Internet ── tcp/80,443 ─▶ INFRA-FIP (188.40.148.152) ─▶ VM-BASTION :
                                                               │ proxy_pass (private net)
                                                               ├▶ VM-JAVA-JS 192.168.100.149:80
                                                               │   (frontend container → Spring API interne)
-                                                              └▶ VM-FULL-STACK-JS 192.168.100.87:80
-                                                                  (nginx → frontend + backend:5000)
+                                                              ├▶ VM-FULL-STACK-JS 192.168.100.87:80
+                                                              │   (nginx → frontend + backend:5000)
+                                                              └▶ VM-LMS-OPENEDX 192.168.100.55:80
+                                                                  (Tutor/Caddy → LMS · CMS · MFE)
 ```
 
 ---
@@ -149,6 +158,53 @@ Internet ── tcp/80,443 ─▶ INFRA-FIP (188.40.148.152) ─▶ VM-BASTION :
   must keep allowing tcp/80 from the private network).
 - **Future improvements:** same as `RP-VHOST-JAVAJS`.
 
+### `RP-VHOST-OPENEDX` — vhost `rif-openedx.duckdns.org` → Open edX LMS
+
+- **Type:** Reverse Proxy (vhost) · **Layer:** Infrastructure + Networking · **Status:** implemented (HTTP + HTTPS), LMS live 2026-08-05; Studio/CMS deferred
+- **Description:** `/etc/nginx/sites-available/rif-openedx` (enabled symlink);
+  upstream block `rif_openedx_application` = `192.168.100.55:80` (keepalive 32);
+  full `X-Forwarded-*` header set; WebSocket upgrade map; `client_max_body_size 20m`;
+  local health endpoint `GET /reverse-proxy-health` → `200 bastion-reverse-proxy-ok`;
+  `listen 443 ssl http2` with the Let's Encrypt cert and HTTP→HTTPS redirect (except
+  `/.well-known/acme-challenge/`).
+- **Purpose:** Publicly expose the **Open edX LMS** and (once the DuckDNS subdomain
+  exists) the **CMS/Studio** authoring UI. The VM runs **Tutor 21 (Indigo)**;
+  `LMS_HOST=rif-openedx.duckdns.org`, `CMS_HOST=rif-openedx-studio.duckdns.org`,
+  `ENABLE_HTTPS=false` (TLS terminated on the bastion). Tutor's Caddy container
+  listens on `:80` and routes to LMS/CMS/MFE by Host header, so a single bastion
+  upstream (`192.168.100.55:80`) serves all Open edX web apps. The LMS service is
+  actually bound to `:80` (a local `:8080` URL is a dev port-forward, not the VM).
+- **Dependencies:** `RP-NGINX`, `VM-LMS-OPENEDX`, `NET-PRIVATE` reachability
+  (`192.168.100.55:80` reachable from the bastion); public DNS (DuckDNS record →
+  `INFRA-FIP`, kept in sync by the role's cron); `LMS_HOST`/`CMS_HOST` saved in Tutor
+  config on the VM and containers restarted after the config change.
+- **Files involved:** `ansible/roles/reverse_proxy/templates/reverse-proxy.conf.j2`,
+  `ansible/group_vars/bastion.yml` (`reverse_proxy_sites`).
+- **Commands:** `curl -I https://rif-openedx.duckdns.org`;
+  `getent hosts rif-openedx.duckdns.org` (expect `188.40.148.152`).
+- **Validation procedure:** `VAL-REVERSE-PROXY`; browser reaches the LMS sign-in
+  page over HTTPS; Django `csrftoken`/`sessionid` cookies are issued with
+  `Domain=rif-openedx.duckdns.org` (proves ALLOWED_HOSTS accepted the host).
+- **Runbook notes (2026-08-05):**
+  - DuckDNS `rif-openedx.duckdns.org` previously pointed to the wrong IP
+    (`102.105.145.173`); corrected to the bastion `188.40.148.152` via the role's
+    DuckDNS task/cron (now `domains=rif-fullstack,rif-javajs,rif-openedx`).
+  - ACME issuance initially failed with `Network is unreachable`: the bastion has no
+    IPv6 route and certbot 1.21 picks the AAAA record. Fixed persistently with
+    `precedence ::ffff:0:0/96  100` in `/etc/gai.conf` (forces IPv4 preference).
+  - A stale host-nginx vhost `/etc/nginx/sites-available/openedx-proxy` (a self-loop
+    `proxy_pass http://192.168.100.55:80`) was removed on the VM; host nginx was
+    inactive. The VM's `:80` is served by Tutor's Caddy container.
+  - `rif-openedx-studio.duckdns.org`: DuckDNS subdomain not yet created (API cannot
+    create it); the vhost entry is commented out in `bastion.yml` until the record
+    exists, then re-add it and re-run the playbook.
+- **Risks:** ACME renewal depends on `HTTP-01` + the gai.conf IPv4-preference fix and
+  the DuckDNS cron; UFW on `VM-LMS-OPENEDX` must keep allowing tcp/80 from the
+  private network (it allows `80/tcp`, `443/tcp` from anywhere).
+- **Future improvements:** expose Studio once the DuckDNS subdomain is created;
+  consider `ENABLE_HTTPS=true` (Tutor Caddy TLS) off the bastion path if a chain is
+  ever wanted end-to-end.
+
 ---
 
 ## Graph Relationships (new edges)
@@ -162,6 +218,9 @@ RP-VHOST-JAVAJS EXPOSES      VM-JAVA-JS            (web traffic only; no FIP on 
 RP-VHOST-FULLSTACK PART_OF   RP-NGINX
 RP-VHOST-FULLSTACK CONNECTS_TO VM-FULL-STACK-JS    (upstream 192.168.100.87:80)
 RP-VHOST-FULLSTACK EXPOSES   VM-FULL-STACK-JS      (web traffic only; no FIP on the VM)
+RP-VHOST-OPENEDX  PART_OF    RP-NGINX
+RP-VHOST-OPENEDX  CONNECTS_TO VM-LMS-OPENEDX       (upstream 192.168.100.55:80)
+RP-VHOST-OPENEDX  EXPOSES    VM-LMS-OPENEDX        (web traffic only; no FIP on the VM)
 ISSUE-AUTH-403-502 RELATED_TO RP-VHOST-JAVAJS · RP-VHOST-FULLSTACK
 ```
 
@@ -169,11 +228,11 @@ ISSUE-AUTH-403-502 RELATED_TO RP-VHOST-JAVAJS · RP-VHOST-FULLSTACK
 
 ## AI Retrieval Optimization
 
-- **Keywords:** reverse proxy, nginx, vhost, rif-javajs, rif-fullstack, duckdns, dakarcitoyen, matchjob, java-js, full-stack-js, 192.168.100.149, 192.168.100.87, upstream, x-forwarded, websocket, health check, bastion web entry, CORS, 403, 502
-- **Tags:** #reverse-proxy #nginx #java-js #full-stack-js #http #implemented
-- **Related Nodes:** `VM-BASTION`, `VM-JAVA-JS`, `VM-FULL-STACK-JS`, `SG-BASTION`, `SG-RULE-BASTION-HTTP`, `SG-RULE-BASTION-HTTPS`, `INFRA-FIP`, `FW-HTTPS`, `FW-DOMAIN-DNS`, `INFRA-ANSIBLE`, `ISSUE-AUTH-403-502`
+- **Keywords:** reverse proxy, nginx, vhost, rif-javajs, rif-fullstack, rif-openedx, duckdns, dakarcitoyen, matchjob, openedx, tutor, lms, cms, studio, java-js, full-stack-js, 192.168.100.149, 192.168.100.87, 192.168.100.55, upstream, x-forwarded, websocket, health check, bastion web entry, CORS, 403, 502, gai.conf, ipv4
+- **Tags:** #reverse-proxy #nginx #java-js #full-stack-js #openedx #lms #http #implemented
+- **Related Nodes:** `VM-BASTION`, `VM-JAVA-JS`, `VM-FULL-STACK-JS`, `VM-LMS-OPENEDX`, `SG-BASTION`, `SG-RULE-BASTION-HTTP`, `SG-RULE-BASTION-HTTPS`, `INFRA-FIP`, `FW-HTTPS`, `FW-DOMAIN-DNS`, `INFRA-ANSIBLE`, `ISSUE-AUTH-403-502`
 - **Parent Nodes:** `VM-BASTION` (host), `FW-REVERSE-PROXY` (capability)
-- **Child Nodes:** `RP-VHOST-JAVAJS`, `RP-VHOST-FULLSTACK`
+- **Child Nodes:** `RP-VHOST-JAVAJS`, `RP-VHOST-FULLSTACK`, `RP-VHOST-OPENEDX`
 - **Cross References:** [security-model.md](security-model.md) (80/443 rules), [operations.md](operations.md) (deploy/disable/validate, incident runbook), [future-roadmap.md](future-roadmap.md) (`FW-HTTPS` pass 2)
 - **Aliases:** proxy inverse (fr), point d'entrée web, nginx bastion
 - **Infrastructure Layer:** `RP-NGINX`, `RP-VHOST-JAVAJS`, `RP-VHOST-FULLSTACK`

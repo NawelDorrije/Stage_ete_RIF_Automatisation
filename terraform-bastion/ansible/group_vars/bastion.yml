@@ -10,6 +10,15 @@ reverse_proxy_sites:
     domain: rif-javajs.duckdns.org
     upstream_host: 192.168.100.149
     upstream_port: 80
+  - name: rif-openedx
+    domain: rif-openedx.duckdns.org
+    upstream_host: 192.168.100.55
+    upstream_port: 80
+  # rif-openedx-studio (CMS/Studio) re-added when DuckDNS subdomain is created:
+  # - name: rif-openedx-studio
+  #   domain: rif-openedx-studio.duckdns.org
+  #   upstream_host: 192.168.100.55
+  #   upstream_port: 80
 
 # Nginx (valeurs partagées)
 reverse_proxy_client_max_body_size: 20m

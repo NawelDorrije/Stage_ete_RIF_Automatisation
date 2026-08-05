@@ -7,9 +7,11 @@ Full-Stack-JS, Java-JS) behind bastion-only security groups.
 
 Since 2026-08-03 the bastion also runs an **Nginx reverse proxy** (Ansible role
 `reverse_proxy`): the same Floating IP multiplexes SSH/22 + HTTP/80 + HTTPS/443.
-First vhost live: `https://rif-javajs.duckdns.org` → DakarCitoyen frontend on
-`192.168.100.149:80` (HTTP + HTTPS; Let's Encrypt via certbot `certonly --webroot`,
-DuckDNS record `rif-javajs` auto-maintained by a cron on the bastion).
+Live vhosts: `https://rif-javajs.duckdns.org` → DakarCitoyen frontend on
+`192.168.100.149:80`; `https://rif-fullstack.duckdns.org` → MatchJob on
+`192.168.100.87:80`; `https://rif-openedx.duckdns.org` → Open edX LMS on
+`192.168.100.55:80` (Tutor/Caddy). TLS via Let's Encrypt `certonly --webroot`,
+DuckDNS records auto-maintained by a cron on the bastion.
 
 - Terraform ≥ 1.7 · provider `openstack ~> 1.53.0` · state in Terraform Cloud
   (`rif-stagiaires` / `Nawel-Bastion-Test`)
@@ -64,6 +66,10 @@ ansible-playbook playbooks/bastion-reverse-proxy.yml
 Checks: `curl https://rif-javajs.duckdns.org/reverse-proxy-health` →
 `bastion-reverse-proxy-ok`; `curl -I https://rif-javajs.duckdns.org` → 200.
 Rollback: `playbooks/disable-reverse-proxy.yml`.
+
+Note (2026-08-05): the bastion has no IPv6 route, which breaks Certbot ACME
+(`Network is unreachable`). Fix is persistent IPv4 preference via
+`precedence ::ffff:0:0/96  100` in `/etc/gai.conf` on the bastion.
 
 Rules of the house: never give a VM a Floating IP (`DEC-007`); never rely on
 `user_data` changes after first boot (`ISSUE-USERDATA-DRIFT` — use Ansible);

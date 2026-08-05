@@ -228,6 +228,12 @@ proceeding.
   handlers, see `roles/reverse_proxy/handlers/main.yml`); the bastion's resolver
   intermittently drops the first lookup of a new name — certbot dry-run uses
   `--no-random-sleep-on-renew` + retries, and DuckDNS/curl use `--retry` to survive it.
+  - **2026-08-05 (Open edX `RP-VHOST-OPENEDX`):** Certbot issuance initially failed
+    with `Network is unreachable` because the bastion has **no IPv6 route** and
+    certbot 1.21 picks the AAAA record. Persistent fix:
+    `precedence ::ffff:0:0/96  100` in `/etc/gai.conf` (forces IPv4 for ACME
+    issuance *and* the `certbot.timer` renewals). Add the gai.conf line on any new
+    bastion before enabling HTTPS for a new vhost.
 
 ### `OP-DISABLE-REVERSE-PROXY` — Disable a reverse-proxy vhost (rollback)
 
