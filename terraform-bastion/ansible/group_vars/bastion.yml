@@ -22,6 +22,13 @@ reverse_proxy_sites:
     domain: apps.rif-openedx.duckdns.org
     upstream_host: 192.168.100.55
     upstream_port: 80
+  # Odoo — instance applicative sur 192.168.100.91. Web UI native en 8069
+  # (pas de Nginx devant le service). Sa réponse 303 -> /odoo sur la racine est
+  # une redirection saine, tolérée par la validation des upstreams/HTTPS.
+  - name: rif-odoo
+    domain: rif-odoo.duckdns.org
+    upstream_host: 192.168.100.91
+    upstream_port: 8069
   # rif-openedx-studio (CMS/Studio) re-added when DuckDNS subdomain is created:
   # - name: rif-openedx-studio
   #   domain: rif-openedx-studio.duckdns.org

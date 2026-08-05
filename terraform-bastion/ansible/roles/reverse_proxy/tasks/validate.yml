@@ -10,9 +10,10 @@
     method: HEAD
     headers:
       Host: "{{ item.domain }}"
-    # 2xx/3xx = upstream vivant (une redirection http->https ou vers le login est
-    # saine, ex. MFE Tutor). follow_redirects=none : on teste l'upstream seulement.
-    status_code: [200, 301, 302, 308]
+    # 2xx/3xx = upstream vivant (une redirection http->https, vers le login, ou
+    # Odoo 303 -> /odoo est saine, ex. MFE Tutor). follow_redirects=none : on
+    # teste l'upstream seulement.
+    status_code: [200, 301, 302, 303, 308]
     follow_redirects: none
     timeout: 10
   loop: "{{ reverse_proxy_sites }}"
@@ -40,7 +41,7 @@
   ansible.builtin.uri:
     url: "http://{{ item.domain }}"
     method: HEAD
-    status_code: [200, 301, 302, 308]
+    status_code: [200, 301, 302, 303, 308]
     timeout: 15
   loop: "{{ reverse_proxy_sites }}"
   changed_when: false
@@ -50,8 +51,9 @@
   ansible.builtin.uri:
     url: "https://{{ item.domain }}"
     method: HEAD
-    # 2xx/3xx = service servi correctement en HTTPS (redirections saines, ex. MFE)
-    status_code: [200, 301, 302, 308]
+    # 2xx/3xx = service servi correctement en HTTPS (redirections saines, ex. MFE
+    # ou Odoo 303 -> /odoo)
+    status_code: [200, 301, 302, 303, 308]
     timeout: 15
     validate_certs: true
   loop: "{{ reverse_proxy_sites }}"

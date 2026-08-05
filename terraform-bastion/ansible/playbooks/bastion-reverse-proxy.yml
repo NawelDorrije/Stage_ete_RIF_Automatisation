@@ -17,9 +17,9 @@
         method: HEAD
         headers:
           Host: "{{ item.domain }}"
-        # 2xx/3xx = upstream vivant (une redirection http->https ou vers le login
-        # est saine). follow_redirects=none : on teste l'upstream, pas la chaîne.
-        status_code: [200, 301, 302, 308]
+        # 2xx/3xx = redirection saine (http->https, vers le login, ou Odoo 303 ->
+        # /odoo). follow_redirects=none : on teste l'upstream, pas la chaîne.
+        status_code: [200, 301, 302, 303, 308]
         follow_redirects: none
         timeout: 10
       loop: "{{ reverse_proxy_sites }}"
