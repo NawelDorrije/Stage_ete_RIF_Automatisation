@@ -32,3 +32,11 @@ output "ssh_java_js" {
   description = "Commande SSH vers Java-JS via le Bastion"
   value       = "ssh -J ubuntu@${var.bastion_floating_ip} ubuntu@192.168.100.149"
 }
+# ============================================================
+# Accès SSH - Projet Haythem
+# ============================================================
+
+output "ssh_haythem_bastion_tdp" {
+  description = "SSH vers Bastion_TDP via bastion-nawel-test"
+  value       = "ssh -J ubuntu@${var.bastion_floating_ip} ubuntu@192.168.100.40"
+}

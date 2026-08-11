@@ -75,3 +75,23 @@ variable "bastion_floating_ip" {
   description = "Floating IP existante à associer au Bastion"
   type        = string
 }
+
+
+
+
+variable "haythem_project_name" {
+  description = "Nom du projet OpenStack de Haythem"
+  type        = string
+  default     = "Stage_TDP_Haythem"
+}
+
+variable "haythem_project_id" {
+  description = "ID du projet OpenStack de Haythem"
+  type        = string
+  default     = "96920551255d4a0cadadc90b7aa84380"
+}
+
+variable "haythem_bastion_port" {
+  description = "Port Neutron de Bastion_TDP"
+  type        = string
+}

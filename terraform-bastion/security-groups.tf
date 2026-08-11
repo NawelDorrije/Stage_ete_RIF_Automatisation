@@ -69,3 +69,38 @@ resource "openstack_networking_secgroup_rule_v2" "vm_icmp_from_bastion" {
   remote_group_id   = openstack_networking_secgroup_v2.bastion.id
   security_group_id = openstack_networking_secgroup_v2.private_vms.id
 }
+
+# ============================================================
+# Security Group - Projet Haythem
+# bastion-nawel-test -> Bastion_TDP uniquement
+# ============================================================
+
+resource "openstack_networking_secgroup_v2" "haythem_from_central_bastion" {
+  provider = openstack.haythem
+
+  name                 = "sg-bastion-tdp-from-bastion-nawel"
+  description          = "Autorise Bastion_TDP depuis bastion-nawel-test"
+  delete_default_rules = false
+}
+
+resource "openstack_networking_secgroup_rule_v2" "haythem_ssh_from_central_bastion" {
+  provider = openstack.haythem
+
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  port_range_min    = 22
+  port_range_max    = 22
+  remote_ip_prefix  = "192.168.100.111/32"
+  security_group_id = openstack_networking_secgroup_v2.haythem_from_central_bastion.id
+}
+
+resource "openstack_networking_secgroup_rule_v2" "haythem_icmp_from_central_bastion" {
+  provider = openstack.haythem
+
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "icmp"
+  remote_ip_prefix  = "192.168.100.111/32"
+  security_group_id = openstack_networking_secgroup_v2.haythem_from_central_bastion.id
+}
