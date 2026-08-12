@@ -10,34 +10,35 @@ reverse_proxy_sites:
     domain: rif-javajs.duckdns.org
     upstream_host: 192.168.100.149
     upstream_port: 80
-
+  # Odoo — instance applicative sur 192.168.100.91.
+  # Port 8090 corresponds to the odoo_waf container (WAF-protected entry).
+  - name: rif-odoo
+    domain: rif-odoo.duckdns.org
+    upstream_host: 192.168.100.91
+    upstream_port: 8090
 # Nginx (valeurs partagées)
 reverse_proxy_client_max_body_size: 20m
 reverse_proxy_read_timeout: 300
 reverse_proxy_connect_timeout: 30
 reverse_proxy_send_timeout: 300
-
 # Pare-feu — 0.0.0.0/0 aligné sur la règle SSH actuelle du Security Group
 # OpenStack (vérifiée le 2026-08-03). Resserrer en /32 des deux côtés si besoin.
 reverse_proxy_manage_ufw: true
 reverse_proxy_ssh_port: 22
 reverse_proxy_admin_cidrs:
   - 0.0.0.0/0   # Aligné sur le SG OpenStack. Remplacer par votre IP publique /32.
-
 # DuckDNS — automatisé via le rôle (cron toutes les 5 min). Tous les
 # sous-domaines de reverse_proxy_sites sont mis à jour vers l'IP publique
 # entrante du bastion 188.40.148.152. L'egress du bastion étant 195.201.169.165
 # (FIP en DNAT-only), duckdns_ip est figé explicitement.
-# Le token est dans ansible/group_vars/all/vault.yml (gitignoré, ne jamais committer).
+# Le token est dans ansible/group_vars/all/vault.yml (gitignoré, ne jamais communiter).
 reverse_proxy_manage_duckdns: true
 duckdns_ip: 188.40.148.152
 duckdns_update_interval_minutes: 5
-
 # HTTPS — certificats Let's Encrypt émis par domaine via webroot (un par site).
 reverse_proxy_enable_https: true
 certbot_email: larrymclarens@gmail.com
 certbot_redirect_http_to_https: true
-
 # Tests — DNS résolu : tests publics activés.
 reverse_proxy_validate_upstream: true
 reverse_proxy_validate_public_http: true
