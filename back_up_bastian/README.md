@@ -1,0 +1,76 @@
+# terraform-bastion
+
+Hardened SSH bastion on OpenStack: a single public entry point
+(`bastion-nawel-test`) into the private network `reseau-stagiaires`
+(`192.168.100.0/24`), protecting the training VMs (LMS-OpenedX, Odoo,
+Full-Stack-JS, Java-JS) behind bastion-only security groups.
+
+Since 2026-08-03 the bastion also runs an **Nginx reverse proxy** (Ansible role
+`reverse_proxy`): the same Floating IP multiplexes SSH/22 + HTTP/80 + HTTPS/443.
+Live vhosts: `https://rif-javajs.duckdns.org` → DakarCitoyen frontend on
+`192.168.100.149:80`; `https://rif-fullstack.duckdns.org` → MatchJob on
+`192.168.100.87:80`; `https://rif-openedx.duckdns.org` → Open edX LMS on
+`192.168.100.55:80` (Tutor/Caddy). TLS via Let's Encrypt `certonly --webroot`,
+DuckDNS records auto-maintained by a cron on the bastion.
+
+- Terraform ≥ 1.7 · provider `openstack ~> 1.53.0` · state in Terraform Cloud
+  (`rif-stagiaires` / `Nawel-Bastion-Test`)
+- Quick access: `terraform output` prints ready-to-use `ssh` / `ssh -J` commands.
+
+## Documentation — Infrastructure Knowledge Graph
+
+This project is documented as a **knowledge graph** (nodes + typed relationships),
+optimized for AI retrieval (RAG/GraphRAG), dependency analysis, and onboarding.
+Start here:
+
+- **[docs/README.md](docs/README.md)** — graph conventions (node IDs, predicates, layers)
+- **[docs/graph/INDEX.md](docs/graph/INDEX.md)** — master node registry + edge table
+- **[docs/graph/graph.json](docs/graph/graph.json)** — machine-readable export
+
+Feature documents:
+
+| Topic | File |
+|---|---|
+| Bastion host (VM, port, FIP, cloud-init, Ansible) | [docs/graph/bastion-host.md](docs/graph/bastion-host.md) |
+| Networking (networks, subnet, endpoints) | [docs/graph/networking.md](docs/graph/networking.md) |
+| Security model (security groups, trust boundaries) | [docs/graph/security-model.md](docs/graph/security-model.md) |
+| SSH workflows (ProxyJump, keys) | [docs/graph/ssh-workflows.md](docs/graph/ssh-workflows.md) |
+| Existing VM integration (pilot rollout) | [docs/graph/vm-integration.md](docs/graph/vm-integration.md) |
+| Terraform platform (module, variables, outputs) | [docs/graph/terraform-platform.md](docs/graph/terraform-platform.md) |
+| Operations runbook (procedures, validation) | [docs/graph/operations.md](docs/graph/operations.md) |
+| Reverse proxy (Nginx vhosts on the bastion) | [docs/graph/reverse-proxy.md](docs/graph/reverse-proxy.md) |
+| Decisions & principles (ADR) | [docs/graph/decisions.md](docs/graph/decisions.md) |
+| Future roadmap (proxy, HTTPS, DNS, monitoring…) | [docs/graph/future-roadmap.md](docs/graph/future-roadmap.md) |
+
+## TL;DR usage
+
+```bash
+terraform init && terraform plan && terraform apply
+terraform output ssh_bastion          # ssh ubuntu@<floating-ip>
+terraform output ssh_lms_openedx      # ssh -J ubuntu@<floating-ip> ubuntu@192.168.100.55
+```
+
+## Reverse proxy (Ansible)
+
+```bash
+cd ansible
+cp inventory.ini.example inventory.ini   # adapter la clé SSH
+ansible-galaxy collection install community.general
+ansible bastion -m ping
+# Token DuckDNS : ansible/group_vars/all/vault.yml (gitignoré) -> duckdns_token
+#   + duckdns_ip=188.40.148.152, reverse_proxy_enable_https: true, certbot_email
+#   dans group_vars/bastion.yml (HTTPS déjà actif : idempotent, changed=0)
+ansible-playbook playbooks/bastion-reverse-proxy.yml
+```
+
+Checks: `curl https://rif-javajs.duckdns.org/reverse-proxy-health` →
+`bastion-reverse-proxy-ok`; `curl -I https://rif-javajs.duckdns.org` → 200.
+Rollback: `playbooks/disable-reverse-proxy.yml`.
+
+Note (2026-08-05): the bastion has no IPv6 route, which breaks Certbot ACME
+(`Network is unreachable`). Fix is persistent IPv4 preference via
+`precedence ::ffff:0:0/96  100` in `/etc/gai.conf` on the bastion.
+
+Rules of the house: never give a VM a Floating IP (`DEC-007`); never rely on
+`user_data` changes after first boot (`ISSUE-USERDATA-DRIFT` — use Ansible);
+always keep `allowed_admin_cidrs` at `/32`.
