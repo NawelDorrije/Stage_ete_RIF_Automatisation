@@ -1,0 +1,33 @@
+private_network_name  = "reseau-stagiaires"
+private_subnet_name   = "subnet-stagiaires"
+external_network_name = "public"
+
+# Exemple : ID de subnet-public-188 ou subnet-public-routed.
+floating_ip_subnet_id = "REMPLACER_PAR_ID_SUBNET_PUBLIC"
+
+bastion_name          = "bastion-nawel-test"
+bastion_image_name    = "Ubuntu-22.04"
+bastion_flavor_name   = "m1.small-custom"
+existing_keypair_name = "Full_Stack_JS_key"
+
+# Pour le test uniquement. Remplacer par votre IP publique /32.
+allowed_admin_cidrs = [
+  "VOTRE_IP_PUBLIQUE/32"
+]
+
+admin_ssh_keys = [
+  "ssh-rsa AAAA... utilisateur@poste"
+]
+
+existing_vm_ports = {
+  full_stack_js = "PORT_ID_FULL_STACK_JS"
+  lms_openedx   = "PORT_ID_LMS_OPENEDX"
+
+  # Décommenter seulement après validation des deux VMs pilotes.
+  # odoo_server  = "PORT_ID_ODOO_SERVER"
+  # java_js      = "PORT_ID_JAVA_JS"
+
+  # mern_frontend = "PORT_ID_MERN_FRONTEND"
+  # mern_backend  = "PORT_ID_MERN_BACKEND"
+  # mern_mongodb  = "PORT_ID_MERN_MONGODB"
+}
